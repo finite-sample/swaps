@@ -140,3 +140,5 @@ def test_cli_writes_all_declared_outputs(tmp_path: Path) -> None:
         "table_scenarios.tex",
     }
     assert {path.name for path in tmp_path.iterdir()} == expected
+    for filename in ("table_budgets.csv", "table_scenarios.csv"):
+        assert b"\r\n" not in (tmp_path / filename).read_bytes()
