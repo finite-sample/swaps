@@ -94,6 +94,8 @@ uv run python replicate_final.py \
   --outdir generated
 ```
 
+Exact enumeration accepts at most 22 clusters. Larger designs require a sampling approximation, which this release does not implement.
+
 ## Validate the repository
 
 ```bash

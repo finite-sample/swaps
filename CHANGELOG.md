@@ -6,3 +6,4 @@
 - Derive raw and design-scaled swap estimators and distinguish them from wild cluster bootstrap inference.
 - Add exact finite-population examples, generated figures and tables, and the compiled methodological note.
 - Add econometric identity tests, reproducibility checks, local automation, and GitHub Actions CI.
+- Bound exact enumeration to 22 clusters to prevent accidental memory exhaustion.

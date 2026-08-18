@@ -1,13 +1,30 @@
 from __future__ import annotations
 
+import argparse
 import math
 import subprocess
 import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 import replicate_final as replication
+
+
+def test_configuration_rejects_intractable_exact_enumeration() -> None:
+    args = argparse.Namespace(
+        fast=False,
+        outdir="generated",
+        clusters=24,
+        cluster_size=None,
+        seed=None,
+    )
+
+    with pytest.raises(ValueError, match="at most 22"):
+        replication.configuration(args)
+    with pytest.raises(ValueError, match="at most 22"):
+        replication.exact_subset_sums(np.zeros(23))
 
 
 def test_scenarios_match_accuracy_but_not_contribution_concentration() -> None:

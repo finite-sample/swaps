@@ -27,6 +27,7 @@ TARGET_ATE = 0.10
 TOTAL_DISTORTION = 0.04
 TARGET_RMSE = 0.20
 TAIL_THRESHOLD = 0.05
+MAX_EXACT_CLUSTERS = 22
 
 DEFAULT: dict[str, Any] = {
     "clusters": 20,
@@ -56,7 +57,11 @@ def parse_args() -> argparse.Namespace:
         "--fast", action="store_true", help="Use a smaller exact design"
     )
     parser.add_argument("--outdir", default="generated", help="Output directory")
-    parser.add_argument("--clusters", type=int, help="Number of experimental clusters")
+    parser.add_argument(
+        "--clusters",
+        type=int,
+        help=f"Number of experimental clusters (maximum {MAX_EXACT_CLUSTERS})",
+    )
     parser.add_argument("--cluster-size", type=int, help="Observations per cluster")
     parser.add_argument("--seed", type=int, help="Base random seed")
     return parser.parse_args()
@@ -72,6 +77,10 @@ def configuration(args: argparse.Namespace) -> dict[str, Any]:
     cfg.update({key: value for key, value in overrides.items() if value is not None})
     if cfg["clusters"] < 4 or cfg["clusters"] % 2:
         raise ValueError("clusters must be an even integer of at least four")
+    if cfg["clusters"] > MAX_EXACT_CLUSTERS:
+        raise ValueError(
+            f"clusters must be at most {MAX_EXACT_CLUSTERS} for exact enumeration"
+        )
     if cfg["cluster_size"] < 2:
         raise ValueError("cluster-size must be at least two")
     cfg["outdir"] = args.outdir
@@ -181,6 +190,10 @@ def make_experiment(
 
 def exact_subset_sums(values: np.ndarray) -> list[np.ndarray]:
     """Return every fixed-size subset sum, indexed by subset size."""
+    if len(values) > MAX_EXACT_CLUSTERS:
+        raise ValueError(
+            f"exact enumeration supports at most {MAX_EXACT_CLUSTERS} values"
+        )
     distributions = [np.array([0.0])] + [np.empty(0) for _ in values]
     for processed, value in enumerate(values, start=1):
         for size in range(processed, 0, -1):
