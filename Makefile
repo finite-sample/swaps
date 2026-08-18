@@ -1,4 +1,7 @@
 PYTHON ?= python3
+SOURCE_DATE_EPOCH ?= 0
+FORCE_SOURCE_DATE ?= 1
+LATEX_ENV = SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) FORCE_SOURCE_DATE=$(FORCE_SOURCE_DATE)
 
 .PHONY: analysis analysis-fast paper test lint format check ci ci-docker
 
@@ -9,8 +12,8 @@ analysis-fast:
 	MPLCONFIGDIR=/tmp/validation-swaps-mpl $(PYTHON) replicate_final.py --fast --outdir /tmp/validation-swaps-fast
 
 paper: analysis
-	pdflatex -interaction=nonstopmode -halt-on-error validation_swaps.tex
-	pdflatex -interaction=nonstopmode -halt-on-error validation_swaps.tex
+	$(LATEX_ENV) pdflatex -interaction=nonstopmode -halt-on-error validation_swaps.tex
+	$(LATEX_ENV) pdflatex -interaction=nonstopmode -halt-on-error validation_swaps.tex
 
 test:
 	MPLCONFIGDIR=/tmp/validation-swaps-mpl $(PYTHON) -m pytest
