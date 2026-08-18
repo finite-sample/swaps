@@ -1,877 +1,581 @@
-"""
-Validation Swaps: Replication Script
-=====================================
+"""Generate the validation-swap distributions, tables, and figures."""
 
-Reproduces all tables and figures from the paper.
-
-Tables:
-  Table 1   Main results (3 scenarios x 4 methods)
-  Table 2   Audit threshold sensitivity
-  Table 3   Validation size sensitivity
-
-Figures:
-  Figure 1  Swap paths (3 scenarios)
-  Figure 2  SIM anatomy (3 scenarios)
-  Figure 3  Bias bar chart
-
-Usage:
-    python replicate_final.py              # default (~4 min)
-    python replicate_final.py --fast       # quick check (~90s)
-
-Requires: numpy, scipy, matplotlib (no other dependencies)
-"""
+from __future__ import annotations
 
 import argparse
-import os
+import csv
+import json
+import math
 import time
-import numpy as np
-import matplotlib
-matplotlib.use("Agg")
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
+import numpy as np
 
-# ═════════════════════════════════════════════════════════
-# Configuration
-# ═════════════════════════════════════════════════════════
-
-DEFAULT = dict(
-    n=2000,
-    n_val=500,
-    n_sims_main=100,       # Table 7.2
-    n_sims_sens=60,        # Tables 7.4, 7.5
-    B_swap=100,            # swap-path MC draws
-    B_sim=80,              # SIM MC draws
-    delta=0.15,
-    seed=2024,
-)
-
-FAST = dict(
-    n=2000,
-    n_val=500,
-    n_sims_main=50,
-    n_sims_sens=30,
-    B_swap=60,
-    B_sim=60,
-    delta=0.15,
-    seed=2024,
-)
+plt.switch_backend("Agg")
 
 
-def parse_args():
-    ap = argparse.ArgumentParser(
-        description="Replicate all tables/figures from Validation Swaps")
-    ap.add_argument("--fast", action="store_true",
-                    help="Reduced MC for quick check")
-    ap.add_argument("--outdir", type=str, default="results",
-                    help="Output directory")
-    return ap.parse_args()
+SCENARIOS = ("diffuse", "concentrated", "offsetting")
+SCENARIO_LABELS = {
+    "diffuse": "Diffuse",
+    "concentrated": "Concentrated",
+    "offsetting": "Offsetting",
+}
+TARGET_ATE = 0.10
+TOTAL_DISTORTION = 0.04
+TARGET_RMSE = 0.20
+TAIL_THRESHOLD = 0.05
+
+DEFAULT: dict[str, Any] = {
+    "clusters": 20,
+    "cluster_size": 50,
+    "seed": 2024,
+}
+
+FAST: dict[str, Any] = {
+    **DEFAULT,
+    "clusters": 16,
+    "cluster_size": 30,
+}
 
 
-# ═════════════════════════════════════════════════════════
-# Data-generating process
-# ═════════════════════════════════════════════════════════
+@dataclass(frozen=True)
+class Experiment:
+    gold: np.ndarray
+    proxy: np.ndarray
+    treatment: np.ndarray
+    cluster: np.ndarray
+    contributions: np.ndarray
 
-def dgp(n, n_val, scenario, rng):
-    """
-    Generate (X, Xhat, W, Y, val_idx).
 
-    Scenarios
-    ---------
-    'benign':        Xhat = X + N(0, 0.3^2)
-    'heterogeneous': Xhat = X + sigma(W2)*nu, sigma = 0.1 + 1.5|W2|
-    'ugly':          Y includes latent U; Xhat = W2 + 0.5*nu
-    """
-    W2 = rng.standard_normal(n)
-    W3 = rng.standard_normal(n)
-    W = np.column_stack([W2, W3])
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--fast", action="store_true", help="Use a smaller exact design"
+    )
+    parser.add_argument("--outdir", default="generated", help="Output directory")
+    parser.add_argument("--clusters", type=int, help="Number of experimental clusters")
+    parser.add_argument("--cluster-size", type=int, help="Observations per cluster")
+    parser.add_argument("--seed", type=int, help="Base random seed")
+    return parser.parse_args()
 
-    if scenario == "benign":
-        X = rng.standard_normal(n)
-        Xhat = X + rng.standard_normal(n) * 0.3
-        Y = 1.0 * X + 0.5 * W2 + 0.3 * W3 + rng.standard_normal(n)
 
-    elif scenario == "heterogeneous":
-        X = rng.standard_normal(n)
-        sigma_e = 0.1 + 1.5 * np.abs(W2)
-        Xhat = X + rng.standard_normal(n) * sigma_e
-        Y = 1.0 * X + 0.5 * W2 + 0.3 * W3 + rng.standard_normal(n)
+def configuration(args: argparse.Namespace) -> dict[str, Any]:
+    cfg = FAST.copy() if args.fast else DEFAULT.copy()
+    overrides = {
+        "clusters": args.clusters,
+        "cluster_size": args.cluster_size,
+        "seed": args.seed,
+    }
+    cfg.update({key: value for key, value in overrides.items() if value is not None})
+    if cfg["clusters"] < 4 or cfg["clusters"] % 2:
+        raise ValueError("clusters must be an even integer of at least four")
+    if cfg["cluster_size"] < 2:
+        raise ValueError("cluster-size must be at least two")
+    cfg["outdir"] = args.outdir
+    return cfg
 
-    elif scenario == "ugly":
-        U = rng.standard_normal(n)
-        X = W2 + U
-        Xhat = W2 + rng.standard_normal(n) * 0.5
-        Y = (1.0 * X + 0.5 * W2 + 0.3 * W3
-             + 1.0 * U + rng.standard_normal(n))
 
+def difference_in_means(outcome: np.ndarray, treatment: np.ndarray) -> float:
+    return float(outcome[treatment == 1].mean() - outcome[treatment == 0].mean())
+
+
+def desired_contributions(scenario: str, clusters: int) -> np.ndarray:
+    """Set cluster contributions while holding the endpoint gap fixed when requested."""
+    values = np.zeros(clusters)
+    half = clusters // 2
+    if scenario == "diffuse":
+        values.fill(TOTAL_DISTORTION / clusters)
+    elif scenario == "concentrated":
+        values[0] = TOTAL_DISTORTION / 2
+        values[half] = TOTAL_DISTORTION / 2
+    elif scenario == "offsetting":
+        values[0] = TOTAL_DISTORTION / 2
+        values[1] = -TOTAL_DISTORTION / 2
+        values[half] = TOTAL_DISTORTION / 2
+        values[half + 1] = -TOTAL_DISTORTION / 2
     else:
         raise ValueError(f"Unknown scenario: {scenario}")
-
-    val_idx = rng.choice(n, n_val, replace=False)
-    return X, Xhat, W, Y, val_idx
+    return values
 
 
-# ═════════════════════════════════════════════════════════
-# OLS with HC1 standard errors
-# ═════════════════════════════════════════════════════════
-
-def ols(x_col, W, Y, subset=None):
-    """
-    OLS of Y on (1, x_col, W).
-    Returns (beta_1, se_1) where beta_1 is the coefficient on x_col.
-    """
-    if subset is not None:
-        x_col = x_col[subset]
-        W = W[subset]
-        Y = Y[subset]
-    n = len(Y)
-    M = np.column_stack([np.ones(n), x_col, W])
-    p = M.shape[1]
-    try:
-        Hinv = np.linalg.inv(M.T @ M)
-    except np.linalg.LinAlgError:
-        return np.nan, np.nan
-    beta = Hinv @ (M.T @ Y)
-    e = Y - M @ beta
-    meat = (M.T * e ** 2) @ M * (n / (n - p))
-    V = Hinv @ meat @ Hinv
-    return beta[1], np.sqrt(max(V[1, 1], 0.0))
-
-
-# ═════════════════════════════════════════════════════════
-# Hybrid design operator
-# ═════════════════════════════════════════════════════════
-
-def hybrid(X, Xhat, mask):
-    """Rows where mask=True use X, rest use Xhat."""
-    out = Xhat.copy()
-    out[mask] = X[mask]
-    return out
-
-
-# ═════════════════════════════════════════════════════════
-# Swap path
-# ═════════════════════════════════════════════════════════
-
-def swap_path(X, Xhat, W, Y, val_idx, p_grid, B=80, rng=None):
-    """
-    Estimate phi(p) = E[beta_1(X^{(S)})] for each p.
-    Returns (means, sds).
-    """
-    if rng is None:
-        rng = np.random.default_rng()
-    n = len(X)
-    means = []
-    sds = []
-    for p in p_grid:
-        if p == 0.0:
-            b, _ = ols(Xhat, W, Y)
-            means.append(b)
-            sds.append(0.0)
-        elif p == 1.0:
-            mask = np.zeros(n, dtype=bool)
-            mask[val_idx] = True
-            b, _ = ols(hybrid(X, Xhat, mask), W, Y)
-            means.append(b)
-            sds.append(0.0)
+def cluster_contributions(
+    gold: np.ndarray,
+    proxy: np.ndarray,
+    treatment: np.ndarray,
+    cluster: np.ndarray,
+) -> np.ndarray:
+    """Allocate the gold-minus-proxy ATE gap across experimental clusters."""
+    residual = gold - proxy
+    treated_n = int(np.sum(treatment == 1))
+    control_n = int(np.sum(treatment == 0))
+    values = np.empty(int(cluster.max()) + 1)
+    for group in range(len(values)):
+        rows = cluster == group
+        if np.unique(treatment[rows]).size != 1:
+            raise ValueError("treatment must be constant within cluster")
+        if treatment[rows][0] == 1:
+            values[group] = residual[rows].sum() / treated_n
         else:
-            bs = []
-            for _ in range(B):
-                mask = np.zeros(n, dtype=bool)
-                mask[val_idx[rng.random(len(val_idx)) < p]] = True
-                b, _ = ols(hybrid(X, Xhat, mask), W, Y)
-                if not np.isnan(b):
-                    bs.append(b)
-            means.append(np.mean(bs) if bs else np.nan)
-            sds.append(np.std(bs) if bs else np.nan)
-    return np.array(means), np.array(sds)
+            values[group] = -residual[rows].sum() / control_n
+    return values
 
 
-# ═════════════════════════════════════════════════════════
-# SIM (Shapley-value swap importance)
-# ═════════════════════════════════════════════════════════
+def make_experiment(
+    scenario: str,
+    clusters: int = 20,
+    cluster_size: int = 50,
+    seed: int = 2024,
+) -> Experiment:
+    """Create a clustered experiment with matched proxy RMSE across scenarios."""
+    if clusters < 4 or clusters % 2:
+        raise ValueError("clusters must be an even integer of at least four")
+    if cluster_size < 2:
+        raise ValueError("cluster_size must be at least two")
 
-def compute_sim(X, Xhat, W, Y, val_idx, B=120, rng=None):
-    """
-    Monte Carlo Shapley approximation of SIM_i for each i in val_idx.
-    Returns array of length len(val_idx).
-    """
-    if rng is None:
-        rng = np.random.default_rng()
-    n = len(X)
-    nv = len(val_idx)
-    sim = np.zeros(nv)
-    counts = np.zeros(nv)
-    k = min(20, nv)
+    rng = np.random.default_rng(seed)
+    cluster = np.repeat(np.arange(clusters), cluster_size)
+    treatment_by_cluster = np.r_[
+        np.ones(clusters // 2, dtype=int),
+        np.zeros(clusters // 2, dtype=int),
+    ]
+    treatment = treatment_by_cluster[cluster]
 
-    for _ in range(B):
-        mask = np.zeros(n, dtype=bool)
-        mask[val_idx[rng.random(nv) < 0.5]] = True
-        b0, _ = ols(hybrid(X, Xhat, mask), W, Y)
-        if np.isnan(b0):
-            continue
-        for ci in rng.choice(nv, size=k, replace=False):
-            i = val_idx[ci]
-            mask2 = mask.copy()
-            mask2[i] = not mask2[i]
-            b1, _ = ols(hybrid(X, Xhat, mask2), W, Y)
-            if np.isnan(b1):
-                continue
-            sim[ci] += (b0 - b1) if mask[i] else (b1 - b0)
-            counts[ci] += 1
+    cluster_effect = rng.normal(0.0, 0.35, clusters)[cluster]
+    individual_noise = rng.normal(0.0, 1.0, len(cluster))
+    baseline = cluster_effect + individual_noise
+    for arm in (0, 1):
+        baseline[treatment == arm] -= baseline[treatment == arm].mean()
+    gold = TARGET_ATE * treatment + baseline
 
-    counts[counts == 0] = 1
-    return sim / counts
-
-
-# ═════════════════════════════════════════════════════════
-# SIM prediction (portable risk score)
-# ═════════════════════════════════════════════════════════
-
-def predict_sim(abs_sim_train, Xhat_train, W_train, Xhat_all, W_all):
-    """
-    Fit r(Z) ≈ E[|SIM| | Z] via OLS with quadratic features.
-    Predict for all rows.
-    """
-    def feats(xh, w):
-        return np.column_stack([
-            np.ones(len(xh)),
-            np.abs(xh),
-            w,
-            w[:, 0] ** 2,
-            w[:, 1] ** 2,
-            w[:, 0] * w[:, 1],
-        ])
-
-    try:
-        g = np.linalg.lstsq(
-            feats(Xhat_train, W_train), abs_sim_train, rcond=None
-        )[0]
-        return np.maximum(feats(Xhat_all, W_all) @ g, 0.0)
-    except Exception:
-        return np.full(len(Xhat_all), np.mean(abs_sim_train))
-
-
-# ═════════════════════════════════════════════════════════
-# Domain selection
-# ═════════════════════════════════════════════════════════
-
-def select_domain_val_only(abs_sim, disc_idx, X, Xhat, W, Y, delta):
-    """
-    Domain = validated rows with |SIM| <= tau.
-    Returns (indices, tau) or (None, nan).
-    """
-    quantiles = np.linspace(0.3, 1.0, 15)
-    best = None
-    best_n = 0
-    best_tau = np.nan
-    for q in quantiles:
-        tau = np.quantile(abs_sim, q)
-        in_dom = disc_idx[abs_sim <= tau]
-        if len(in_dom) < 20:
-            continue
-        bx, _ = ols(X, W, Y, in_dom)
-        bxh, _ = ols(Xhat, W, Y, in_dom)
-        if np.isnan(bx) or np.isnan(bxh):
-            continue
-        if abs(bx - bxh) <= delta and len(in_dom) > best_n:
-            best = in_dom
-            best_n = len(in_dom)
-            best_tau = tau
-    return best, best_tau
-
-
-def select_domain_projected(abs_sim, disc_idx, X, Xhat, W, Y, delta, n):
-    """
-    Domain = all rows with predicted |SIM| <= tau.
-    Returns (boolean mask, tau) or (zeros, nan).
-    """
-    pred = predict_sim(abs_sim, Xhat[disc_idx], W[disc_idx], Xhat, W)
-    quantiles = np.linspace(0.3, 1.0, 15)
-    best_mask = None
-    best_n = 0
-    best_tau = np.nan
-    for q in quantiles:
-        tau = np.quantile(pred, q)
-        candidate = pred <= tau
-        vi = disc_idx[candidate[disc_idx]]
-        if len(vi) < 20:
-            continue
-        bx, _ = ols(X, W, Y, vi)
-        bxh, _ = ols(Xhat, W, Y, vi)
-        if np.isnan(bx) or np.isnan(bxh):
-            continue
-        if abs(bx - bxh) <= delta and np.sum(candidate) > best_n:
-            best_mask = candidate
-            best_n = np.sum(candidate)
-            best_tau = tau
-    if best_mask is None:
-        return np.zeros(n, dtype=bool), np.nan
-    return best_mask, best_tau
-
-
-# ═════════════════════════════════════════════════════════
-# Local correction
-# ═════════════════════════════════════════════════════════
-
-def local_correct(X_val, Xhat_val, W_val, Xhat_target, W_target,
-                  val_in_domain):
-    """
-    Fit mu(Z) = E[X | Z, R=1] on validation rows in domain.
-    Predict for target rows.
-    """
-    if np.sum(val_in_domain) < 10:
-        return Xhat_target.copy()
-    M = np.column_stack([
-        np.ones(np.sum(val_in_domain)),
-        Xhat_val[val_in_domain],
-        W_val[val_in_domain],
-    ])
-    try:
-        g = np.linalg.lstsq(M, X_val[val_in_domain], rcond=None)[0]
-    except Exception:
-        return Xhat_target.copy()
-    M_pred = np.column_stack([
-        np.ones(len(Xhat_target)),
-        Xhat_target,
-        W_target,
-    ])
-    return M_pred @ g
-
-
-# ═════════════════════════════════════════════════════════
-# SE(D) via paired influence functions
-# ═════════════════════════════════════════════════════════
-
-def distortion_with_se(X, Xhat, W, Y, subset):
-    """
-    D = beta_1(X) - beta_1(Xhat) on subset, with SE(D).
-    SE computed via influence-function difference, retaining covariance.
-    """
-    x = X[subset]
-    xh = Xhat[subset]
-    w = W[subset]
-    y = Y[subset]
-    n = len(y)
-    p = w.shape[1] + 2
-
-    Mx = np.column_stack([np.ones(n), x, w])
-    Mxh = np.column_stack([np.ones(n), xh, w])
-    try:
-        Hx = np.linalg.inv(Mx.T @ Mx)
-        Hxh = np.linalg.inv(Mxh.T @ Mxh)
-    except np.linalg.LinAlgError:
-        return np.nan, np.nan
-
-    bx = Hx @ Mx.T @ y
-    bxh = Hxh @ Mxh.T @ y
-    D = bx[1] - bxh[1]
-
-    ex = y - Mx @ bx
-    exh = y - Mxh @ bxh
-    psi = (Hx @ (Mx.T * ex))[1, :] - (Hxh @ (Mxh.T * exh))[1, :]
-    se_D = np.sqrt(max(np.sum(psi ** 2) * n / (n - p), 0.0))
-    return D, se_D
-
-
-# ═════════════════════════════════════════════════════════
-# One MC replication (produces one row per method)
-# ═════════════════════════════════════════════════════════
-
-def run_one(scenario, cfg, rng):
-    """
-    Full pipeline for one MC draw.
-    Returns dict with all quantities needed for tables.
-    """
-    n = cfg["n"]
-    n_val = cfg["n_val"]
-    delta = cfg["delta"]
-    B_sim = cfg["B_sim"]
-
-    X, Xhat, W, Y, val_idx = dgp(n, n_val, scenario, rng)
-
-    # Split validation: discovery / audit
-    rng.shuffle(val_idx)
-    half = n_val // 2
-    disc_idx = val_idx[:half]
-    audit_idx = val_idx[half:]
-
-    # ── Baselines ──
-    b_oracle, se_oracle = ols(X, W, Y)
-    b_naive, se_naive = ols(Xhat, W, Y)
-    b_val, se_val = ols(X, W, Y, val_idx)
-
-    # Global correction: E[X|Z] = g0 + g1*Xhat + g2*W2 + g3*W3
-    Mfit = np.column_stack([np.ones(n_val), Xhat[val_idx], W[val_idx]])
-    try:
-        gam = np.linalg.lstsq(Mfit, X[val_idx], rcond=None)[0]
-        mu_global = np.column_stack([np.ones(n), Xhat, W]) @ gam
-        b_gcorr, se_gcorr = ols(mu_global, W, Y)
-    except Exception:
-        b_gcorr, se_gcorr = np.nan, np.nan
-
-    # ── SIM on discovery fold ──
-    sim_scores = compute_sim(X, Xhat, W, Y, disc_idx, B=B_sim, rng=rng)
-    abs_sim = np.abs(sim_scores)
-
-    res = dict(
-        b_oracle=b_oracle, se_oracle=se_oracle,
-        b_naive=b_naive, se_naive=se_naive,
-        b_val=b_val, se_val=se_val,
-        b_gcorr=b_gcorr, se_gcorr=se_gcorr,
-    )
-
-    # ── Approach A: val-only domain ──
-    dom_v, tau_v = select_domain_val_only(
-        abs_sim, disc_idx, X, Xhat, W, Y, delta
-    )
-    res["valonly_pass"] = False
-    res["valonly_share"] = 0.0
-    res["valonly_bias"] = np.nan
-    res["valonly_b_or_dom"] = np.nan
-    res["valonly_se_dom"] = np.nan
-
-    if dom_v is not None:
-        # Audit: recompute SIM on audit fold, apply same tau
-        sim_aud = compute_sim(
-            X, Xhat, W, Y, audit_idx,
-            B=max(B_sim // 3, 30), rng=rng
+    target_contributions = desired_contributions(scenario, clusters)
+    units_per_arm = len(gold) // 2
+    cluster_mean_error = np.empty(clusters)
+    for group in range(clusters):
+        sign = 1.0 if treatment_by_cluster[group] == 1 else -1.0
+        cluster_mean_error[group] = (
+            sign * target_contributions[group] * units_per_arm / cluster_size
         )
-        audit_in = audit_idx[np.abs(sim_aud) <= tau_v]
-        if len(audit_in) >= 15:
-            D_a, _ = distortion_with_se(X, Xhat, W, Y, audit_in)
-            if not np.isnan(D_a) and abs(D_a) <= delta:
-                res["valonly_pass"] = True
-                all_dom = np.concatenate([dom_v, audit_in])
-                res["valonly_share"] = len(all_dom) / n
-                b_or_dom, _ = ols(X, W, Y, all_dom)
-                # Local correction
-                vmask = np.isin(val_idx, set(all_dom))
-                mu = local_correct(
-                    X[val_idx], Xhat[val_idx], W[val_idx],
-                    Xhat[all_dom], W[all_dom], vmask
-                )
-                b_corr, se_corr = ols(mu, W[all_dom], Y[all_dom])
-                res["valonly_bias"] = b_corr - b_or_dom
-                res["valonly_b_or_dom"] = b_or_dom
-                res["valonly_se_dom"] = se_corr
 
-    # ── Approach B: projected domain ──
-    dom_mask, tau_p = select_domain_projected(
-        abs_sim, disc_idx, X, Xhat, W, Y, delta, n
+    centered_noise = rng.normal(size=len(gold))
+    for group in range(clusters):
+        rows = cluster == group
+        centered_noise[rows] -= centered_noise[rows].mean()
+    mean_component = cluster_mean_error[cluster]
+    remaining_mse = TARGET_RMSE**2 - float(np.mean(mean_component**2))
+    if remaining_mse < 0:
+        raise ValueError("target RMSE is too small for the requested contributions")
+    noise_scale = math.sqrt(remaining_mse / float(np.mean(centered_noise**2)))
+    scoring_error = mean_component + noise_scale * centered_noise
+    proxy = gold - scoring_error
+    contributions = cluster_contributions(gold, proxy, treatment, cluster)
+
+    if not np.allclose(contributions, target_contributions, atol=1e-12):
+        raise RuntimeError("constructed contributions do not match their targets")
+    if not np.isclose(np.sqrt(np.mean(scoring_error**2)), TARGET_RMSE):
+        raise RuntimeError("constructed scoring error does not match target RMSE")
+    return Experiment(gold, proxy, treatment, cluster, contributions)
+
+
+def exact_subset_sums(values: np.ndarray) -> list[np.ndarray]:
+    """Return every fixed-size subset sum, indexed by subset size."""
+    distributions = [np.array([0.0])] + [np.empty(0) for _ in values]
+    for processed, value in enumerate(values, start=1):
+        for size in range(processed, 0, -1):
+            added = distributions[size - 1] + value
+            distributions[size] = np.concatenate([distributions[size], added])
+    for size, distribution in enumerate(distributions):
+        expected = math.comb(len(values), size)
+        if len(distribution) != expected:
+            raise RuntimeError("subset enumeration failed")
+    return distributions
+
+
+def raw_swap_distributions(experiment: Experiment) -> list[np.ndarray]:
+    proxy_ate = difference_in_means(experiment.proxy, experiment.treatment)
+    return [proxy_ate + sums for sums in exact_subset_sums(experiment.contributions)]
+
+
+def scaled_swap_distributions(experiment: Experiment) -> list[np.ndarray]:
+    """Return design-scaled estimates for every nonempty validation set size."""
+    proxy_ate = difference_in_means(experiment.proxy, experiment.treatment)
+    clusters = len(experiment.contributions)
+    subset_sums = exact_subset_sums(experiment.contributions)
+    distributions = [np.array([np.nan])]
+    for size in range(1, clusters + 1):
+        distributions.append(proxy_ate + (clusters / size) * subset_sums[size])
+    return distributions
+
+
+def finite_population_variance(values: np.ndarray, size: int, scaled: bool) -> float:
+    """Variance of a fixed-size simple-random-sample sum or scaled total."""
+    clusters = len(values)
+    if not 1 <= size <= clusters:
+        raise ValueError("size must lie between one and the number of clusters")
+    population_variance = float(np.var(values, ddof=1))
+    raw_variance = size * (1 - size / clusters) * population_variance
+    if scaled:
+        return (clusters / size) ** 2 * raw_variance
+    return raw_variance
+
+
+def prediction_metrics(experiment: Experiment) -> tuple[float, float]:
+    error = experiment.gold - experiment.proxy
+    rmse = float(np.sqrt(np.mean(error**2)))
+    denominator = float(np.sum((experiment.gold - experiment.gold.mean()) ** 2))
+    r_squared = 1 - float(error @ error) / denominator
+    return rmse, r_squared
+
+
+def make_experiments(cfg: dict[str, Any]) -> dict[str, Experiment]:
+    return {
+        scenario: make_experiment(
+            scenario,
+            clusters=cfg["clusters"],
+            cluster_size=cfg["cluster_size"],
+            seed=cfg["seed"],
+        )
+        for scenario in SCENARIOS
+    }
+
+
+def budget_grid(clusters: int) -> list[int]:
+    candidates = {1, 2, clusters // 4, clusters // 2, 3 * clusters // 4, clusters}
+    return sorted(size for size in candidates if 1 <= size <= clusters)
+
+
+def scenario_table(
+    cfg: dict[str, Any], experiments: dict[str, Experiment]
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for scenario, experiment in experiments.items():
+        gold_ate = difference_in_means(experiment.gold, experiment.treatment)
+        proxy_ate = difference_in_means(experiment.proxy, experiment.treatment)
+        rmse, r_squared = prediction_metrics(experiment)
+        absolute = np.abs(experiment.contributions)
+        rows.append(
+            {
+                "scenario": scenario,
+                "gold_ate": gold_ate,
+                "proxy_ate": proxy_ate,
+                "endpoint_gap": gold_ate - proxy_ate,
+                "rmse": rmse,
+                "r_squared": r_squared,
+                "contribution_sd": float(np.std(experiment.contributions, ddof=1)),
+                "top_two_absolute_share": float(
+                    np.sort(absolute)[-2:].sum() / absolute.sum()
+                    if absolute.sum() > 0
+                    else 0.0
+                ),
+            }
+        )
+    write_csv(
+        Path(cfg["outdir"]) / "table_scenarios.csv",
+        list(rows[0]),
+        rows,
     )
-    res["proj_pass"] = False
-    res["proj_share"] = 0.0
-    res["proj_bias"] = np.nan
-    res["proj_b_or_dom"] = np.nan
-    res["proj_se_dom"] = np.nan
-
-    if not np.isnan(tau_p):
-        audit_in_p = audit_idx[dom_mask[audit_idx]]
-        if len(audit_in_p) >= 15:
-            D_a, se_D_a = distortion_with_se(X, Xhat, W, Y, audit_in_p)
-            if not np.isnan(D_a) and abs(D_a) <= delta:
-                res["proj_pass"] = True
-                dom_rows = np.where(dom_mask)[0]
-                res["proj_share"] = len(dom_rows) / n
-                b_or_dom, _ = ols(X, W, Y, dom_rows)
-                vmask = np.array([dom_mask[v] for v in val_idx])
-                mu = local_correct(
-                    X[val_idx], Xhat[val_idx], W[val_idx],
-                    Xhat[dom_rows], W[dom_rows], vmask
-                )
-                b_corr, se_corr = ols(mu, W[dom_rows], Y[dom_rows])
-                res["proj_bias"] = b_corr - b_or_dom
-                res["proj_b_or_dom"] = b_or_dom
-                res["proj_se_dom"] = se_corr
-
-    return res
+    return rows
 
 
-# ═════════════════════════════════════════════════════════
-# Table 7.2: Main results
-# ═════════════════════════════════════════════════════════
-
-def table_main(cfg):
-    """Reproduce Table 7.2."""
-    print("\n" + "=" * 78)
-    print("TABLE 7.2: MAIN RESULTS")
-    print("=" * 78)
-    scenarios = ["benign", "heterogeneous", "ugly"]
-    all_res = {}
-
-    for scen in scenarios:
-        print(f"\n  Running {scen}...")
-        results = []
-        for sim in range(cfg["n_sims_main"]):
-            if (sim + 1) % 25 == 0:
-                print(f"    {sim + 1}/{cfg['n_sims_main']}")
-            rng = np.random.default_rng(cfg["seed"] + sim * 997
-                                        + hash(scen) % 9999)
-            results.append(run_one(scen, cfg, rng))
-        all_res[scen] = results
-
-    # Print
-    print("\n" + "-" * 78)
-    print(f"{'Scenario':>15} {'Method':>28} {'Bias':>8} "
-          f"{'%Bias':>8} {'Pass':>6} {'n_p':>5} {'Share':>7}")
-    print("-" * 78)
-
-    csv_rows = []
-    for scen in scenarios:
-        res = all_res[scen]
-        b_or = np.nanmean([r["b_oracle"] for r in res])
-        ns = len(res)
-
-        for label, key in [
-            ("Naive", "b_naive"),
-            ("Global correction", "b_gcorr"),
-            ("Validation only", "b_val"),
-        ]:
-            vals = [r[key] for r in res if not np.isnan(r[key])]
-            bias = np.mean(vals) - b_or if vals else np.nan
-            pct = 100 * bias / b_or if (vals and abs(b_or) > 1e-8) else np.nan
-            print(f"{scen:>15} {label:>28} {bias:>8.3f} "
-                  f"{pct:>8.1f} {'':>6} {'':>5} {'':>7}")
-            csv_rows.append([scen, label, f"{bias:.4f}", f"{pct:.1f}",
-                             "", "", ""])
-
-        for lbl, pkey, bkey, skey, okey in [
-            ("SIM (val only)+corr", "valonly_pass", "valonly_bias",
-             "valonly_share", "valonly_b_or_dom"),
-            ("SIM (projected)+corr", "proj_pass", "proj_bias",
-             "proj_share", "proj_b_or_dom"),
-        ]:
-            passed = [r for r in res if r[pkey]]
-            n_pass = len(passed)
-            rate = n_pass / ns
-            if passed:
-                biases = [r[bkey] for r in passed if not np.isnan(r[bkey])]
-                oracles = [r[okey] for r in passed if not np.isnan(r[okey])]
-                shares = [r[skey] for r in passed]
-                mb = np.mean(biases) if biases else np.nan
-                pct = (100 * mb / np.mean(oracles)
-                       if biases and oracles and abs(np.mean(oracles)) > 1e-8
-                       else np.nan)
-                ms = np.mean(shares)
-                print(f"{scen:>15} {lbl:>28} {mb:>8.4f} "
-                      f"{pct:>8.1f} {rate:>6.0%} {n_pass:>5} {ms:>7.2f}")
-                csv_rows.append([scen, lbl, f"{mb:.4f}", f"{pct:.1f}",
-                                 f"{rate:.3f}", str(n_pass), f"{ms:.2f}"])
-            else:
-                print(f"{scen:>15} {lbl:>28} {'--':>8} "
-                      f"{'--':>8} {rate:>6.0%} {n_pass:>5} {'--':>7}")
-                csv_rows.append([scen, lbl, "", "", f"{rate:.3f}",
-                                 str(n_pass), ""])
-
-    # CSV
-    with open(os.path.join(cfg["outdir"], "table_7_2_main.csv"), "w") as f:
-        f.write("scenario,method,bias,pct_bias,pass_rate,n_pass,share\n")
-        for r in csv_rows:
-            f.write(",".join(r) + "\n")
-
-    return all_res
-
-
-# ═════════════════════════════════════════════════════════
-# Table 7.4: Precision comparison
-# ═════════════════════════════════════════════════════════
-
-def table_precision(cfg):
-    """Reproduce Table 7.4."""
-    print("\n" + "=" * 78)
-    print("TABLE 7.4: PRECISION COMPARISON (heterogeneous)")
-    print("=" * 78)
-    deltas = [0.05, 0.10, 0.15, 0.20, 0.30]
-    n_rep = cfg["n_sims_sens"]
-
-    print(f"{'delta':>6} {'Pass%':>7} {'n_p':>5} {'SE_dom':>8} "
-          f"{'SE_val':>8} {'CI_dom':>8} {'CI_val':>8} {'Tighter?':>9}")
-    print("-" * 68)
-
-    csv_rows = []
-    for dg in deltas:
-        cfg_d = {**cfg, "delta": dg}
-        passed = []
-        for sim in range(n_rep):
-            rng = np.random.default_rng(cfg["seed"] + sim * 997 + 444)
-            r = run_one("heterogeneous", cfg_d, rng)
-            if r["proj_pass"]:
-                passed.append(r)
-
-        rate = len(passed) / n_rep
-        if passed:
-            se_d = np.mean([r["proj_se_dom"] for r in passed
-                            if not np.isnan(r["proj_se_dom"])])
-            se_v = np.mean([r["se_val"] for r in passed
-                            if not np.isnan(r["se_val"])])
-            ci_d = 1.96 * se_d + dg
-            ci_v = 1.96 * se_v
-            tighter = "Yes" if ci_d < ci_v else "No"
-            print(f"{dg:>6.2f} {rate:>7.0%} {len(passed):>5} {se_d:>8.3f} "
-                  f"{se_v:>8.3f} {ci_d:>8.3f} {ci_v:>8.3f} {tighter:>9}")
-            csv_rows.append([dg, rate, len(passed), se_d, se_v,
-                             ci_d, ci_v, tighter])
-        else:
-            print(f"{dg:>6.2f} {rate:>7.0%} {0:>5} {'--':>8} "
-                  f"{'--':>8} {'--':>8} {'--':>8} {'--':>9}")
-            csv_rows.append([dg, rate, 0, "", "", "", "", ""])
-
-    with open(os.path.join(cfg["outdir"], "table_7_4_precision.csv"), "w") as f:
-        f.write("delta,pass_rate,n_pass,se_domain,se_val,"
-                "ci_domain,ci_val,domain_tighter\n")
-        for r in csv_rows:
-            f.write(",".join(str(x) for x in r) + "\n")
-
-
-# ═════════════════════════════════════════════════════════
-# Table 7.5a: Audit threshold sensitivity
-# ═════════════════════════════════════════════════════════
-
-def table_audit_threshold(cfg):
-    """Reproduce Table 7.5a."""
-    print("\n" + "=" * 78)
-    print("TABLE 7.5a: AUDIT THRESHOLD (heterogeneous, projected)")
-    print("=" * 78)
-    deltas = [0.05, 0.10, 0.15, 0.25, 0.50]
-    n_rep = cfg["n_sims_sens"]
-
-    print(f"{'delta':>6} {'Pass%':>7} {'n_p':>5} "
-          f"{'Bias|pass':>10} {'Share|pass':>11}")
-    print("-" * 48)
-
-    csv_rows = []
-    for dg in deltas:
-        cfg_d = {**cfg, "delta": dg}
-        passed = []
-        for sim in range(n_rep):
-            rng = np.random.default_rng(cfg["seed"] + sim * 997 + 111)
-            r = run_one("heterogeneous", cfg_d, rng)
-            if r["proj_pass"]:
-                passed.append(r)
-
-        rate = len(passed) / n_rep
-        if passed:
-            biases = [r["proj_bias"] for r in passed
-                      if not np.isnan(r["proj_bias"])]
-            shares = [r["proj_share"] for r in passed]
-            mb = np.mean(biases) if biases else np.nan
-            ms = np.mean(shares)
-            print(f"{dg:>6.2f} {rate:>7.0%} {len(passed):>5} "
-                  f"{mb:>10.4f} {ms:>11.2f}")
-            csv_rows.append([dg, rate, len(passed), mb, ms])
-        else:
-            print(f"{dg:>6.2f} {rate:>7.0%} {0:>5} "
-                  f"{'--':>10} {'--':>11}")
-            csv_rows.append([dg, rate, 0, "", ""])
-
-    with open(os.path.join(cfg["outdir"],
-                            "table_7_5a_audit_threshold.csv"), "w") as f:
-        f.write("delta,pass_rate,n_pass,bias_if_pass,share_if_pass\n")
-        for r in csv_rows:
-            f.write(",".join(str(x) for x in r) + "\n")
-
-
-# ═════════════════════════════════════════════════════════
-# Table 7.5b: Validation size sensitivity
-# ═════════════════════════════════════════════════════════
-
-def table_val_size(cfg):
-    """Reproduce Table 7.5b."""
-    print("\n" + "=" * 78)
-    print("TABLE 7.5b: VALIDATION SIZE (heterogeneous, projected, delta=0.15)")
-    print("=" * 78)
-    val_sizes = [200, 400, 600, 800]
-    n_rep = cfg["n_sims_sens"]
-
-    print(f"{'n_val':>6} {'Pass%':>7} {'n_p':>5} "
-          f"{'Bias|pass':>10} {'Share|pass':>11}")
-    print("-" * 48)
-
-    csv_rows = []
-    for nv in val_sizes:
-        cfg_v = {**cfg, "n_val": nv}
-        passed = []
-        for sim in range(n_rep):
-            rng = np.random.default_rng(cfg["seed"] + sim * 997 + 222)
-            r = run_one("heterogeneous", cfg_v, rng)
-            if r["proj_pass"]:
-                passed.append(r)
-
-        rate = len(passed) / n_rep
-        if passed:
-            biases = [r["proj_bias"] for r in passed
-                      if not np.isnan(r["proj_bias"])]
-            shares = [r["proj_share"] for r in passed]
-            mb = np.mean(biases) if biases else np.nan
-            ms = np.mean(shares)
-            print(f"{nv:>6} {rate:>7.0%} {len(passed):>5} "
-                  f"{mb:>10.4f} {ms:>11.2f}")
-            csv_rows.append([nv, rate, len(passed), mb, ms])
-        else:
-            print(f"{nv:>6} {rate:>7.0%} {0:>5} "
-                  f"{'--':>10} {'--':>11}")
-            csv_rows.append([nv, rate, 0, "", ""])
-
-    with open(os.path.join(cfg["outdir"],
-                            "table_7_5b_val_size.csv"), "w") as f:
-        f.write("n_val,pass_rate,n_pass,bias_if_pass,share_if_pass\n")
-        for r in csv_rows:
-            f.write(",".join(str(x) for x in r) + "\n")
-
-
-# ═════════════════════════════════════════════════════════
-# Figures
-# ═════════════════════════════════════════════════════════
-
-def figure_swap_paths(cfg):
-    """Figure 1: swap paths across scenarios."""
-    print("\n  Figure 1: swap paths")
-    scenarios = ["benign", "heterogeneous", "ugly"]
-    p_grid = np.linspace(0, 1, 9)
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4), sharey=True)
-    for ax, scen in zip(axes, scenarios):
-        rng = np.random.default_rng(cfg["seed"] + hash(scen) % 9999)
-        X, Xhat, W, Y, vi = dgp(cfg["n"], cfg["n_val"], scen, rng)
-        m, s = swap_path(X, Xhat, W, Y, vi, p_grid,
-                         B=cfg["B_swap"], rng=rng)
-        ax.plot(p_grid, m, "o-", color="#E53935", markersize=5)
-        ax.fill_between(p_grid, m - s, m + s, alpha=0.15, color="#E53935")
-        ax.axhline(1.0, color="gray", ls=":", alpha=0.4)
-        ax.set_xlabel("swap fraction p")
-        ax.set_title(scen.capitalize())
-    axes[0].set_ylabel("$\\hat{\\beta}_1(p)$")
-    fig.tight_layout()
-    fig.savefig(os.path.join(cfg["outdir"], "fig1_swap_paths.png"),
-                dpi=150, bbox_inches="tight")
-    plt.close(fig)
-
-
-def figure_sim_anatomy(cfg):
-    """Figure 2: SIM anatomy across scenarios."""
-    print("  Figure 2: SIM anatomy")
-    scenarios = ["benign", "heterogeneous", "ugly"]
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
-    for ax, scen in zip(axes, scenarios):
-        rng = np.random.default_rng(cfg["seed"] + hash(scen) % 9999)
-        X, Xhat, W, Y, vi = dgp(cfg["n"], cfg["n_val"], scen, rng)
-        sim = compute_sim(X, Xhat, W, Y, vi, B=cfg["B_sim"], rng=rng)
-        err = np.abs(X[vi] - Xhat[vi])
-        Mh = np.column_stack([np.ones(len(vi)), Xhat[vi], W[vi]])
-        try:
-            H = Mh @ np.linalg.inv(Mh.T @ Mh) @ Mh.T
-            lev = np.diag(H)
-        except np.linalg.LinAlgError:
-            lev = np.ones(len(vi))
-        interact = lev * err
-        sc = ax.scatter(interact, np.abs(sim), alpha=0.35, s=10,
-                        c=np.abs(W[vi, 0]), cmap="RdYlGn_r",
-                        edgecolors="none", vmin=0, vmax=3)
-        r = np.corrcoef(interact, np.abs(sim))[0, 1]
-        ax.set_xlabel("leverage × |proxy error|")
-        ax.set_title(f"{scen.capitalize()} (r={r:.2f})")
-    axes[0].set_ylabel("|SIM|")
-    fig.colorbar(sc, ax=axes[-1], label="|W₂|", shrink=0.8)
-    fig.tight_layout()
-    fig.savefig(os.path.join(cfg["outdir"], "fig2_sim_anatomy.png"),
-                dpi=150, bbox_inches="tight")
-    plt.close(fig)
-
-
-def figure_bias_bars(all_res, cfg):
-    """Figure 3: bias bar chart from main results."""
-    print("  Figure 3: bias bars")
-    scenarios = ["benign", "heterogeneous", "ugly"]
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5), sharey=True)
-    for ax, scen in zip(axes, scenarios):
-        res = all_res[scen]
-        b_or = np.nanmean([r["b_oracle"] for r in res])
-        ns = len(res)
-        methods = []
-        biases = []
-        colors = []
-
-        b = np.nanmean([r["b_naive"] for r in res])
-        methods.append("Naive")
-        biases.append(b - b_or)
-        colors.append("#F44336")
-
-        vals = [r["b_gcorr"] for r in res if not np.isnan(r["b_gcorr"])]
-        if vals:
-            methods.append("Global\ncorr")
-            biases.append(np.mean(vals) - b_or)
-            colors.append("#FF9800")
-
-        methods.append("Val\nonly")
-        biases.append(np.nanmean([r["b_val"] for r in res]) - b_or)
-        colors.append("#2196F3")
-
-        for pkey, bkey, color, lbl in [
-            ("valonly_pass", "valonly_bias", "#4CAF50", "SIM\n(val)"),
-            ("proj_pass", "proj_bias", "#9C27B0", "SIM\n(proj)"),
-        ]:
-            passed = [r for r in res if r[pkey]]
-            if passed:
-                bs = [r[bkey] for r in passed if not np.isnan(r[bkey])]
-                if bs:
-                    rate = len(passed) / ns
-                    methods.append(f"{lbl}\n({rate:.0%})")
-                    biases.append(np.mean(bs))
-                    colors.append(color)
-
-        x = np.arange(len(methods))
-        ax.bar(x, biases, color=colors, alpha=0.7, edgecolor="white")
-        ax.axhline(0, color="gray", ls="-", alpha=0.3)
-        ax.set_xticks(x)
-        ax.set_xticklabels(methods, fontsize=7)
-        ax.set_title(scen.capitalize())
-    axes[0].set_ylabel("Bias")
-    fig.suptitle(
-        "Bias by method (domain methods conditional on audit pass)",
-        fontsize=11,
+def budget_table(
+    cfg: dict[str, Any], experiments: dict[str, Experiment]
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for scenario, experiment in experiments.items():
+        gold_ate = difference_in_means(experiment.gold, experiment.treatment)
+        distributions = scaled_swap_distributions(experiment)
+        for size in budget_grid(cfg["clusters"]):
+            estimates = distributions[size]
+            rows.append(
+                {
+                    "scenario": scenario,
+                    "validated_clusters": size,
+                    "mean": float(np.mean(estimates)),
+                    "bias": float(np.mean(estimates) - gold_ate),
+                    "sd": float(np.std(estimates, ddof=0)),
+                    "p05": float(np.quantile(estimates, 0.05)),
+                    "median": float(np.quantile(estimates, 0.50)),
+                    "p95": float(np.quantile(estimates, 0.95)),
+                    "tail_probability": float(
+                        np.mean(np.abs(estimates - gold_ate) > TAIL_THRESHOLD)
+                    ),
+                    "sign_reversal_probability": float(
+                        np.mean(np.sign(estimates) != np.sign(gold_ate))
+                    ),
+                }
+            )
+    write_csv(
+        Path(cfg["outdir"]) / "table_budgets.csv",
+        list(rows[0]),
+        rows,
     )
-    fig.tight_layout()
-    fig.savefig(os.path.join(cfg["outdir"], "fig3_bias_bars.png"),
-                dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    return rows
 
 
-# ═════════════════════════════════════════════════════════
-# Main
-# ═════════════════════════════════════════════════════════
+def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, Any]]) -> None:
+    with path.open("w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
 
-def main():
+
+def format_number(value: float, digits: int = 3) -> str:
+    return f"{value:.{digits}f}"
+
+
+def format_percent(value: float, digits: int = 0) -> str:
+    return f"{100 * value:.{digits}f}\\%"
+
+
+def latex_scenario_table(path: Path, rows: list[dict[str, Any]]) -> None:
+    lines = [
+        r"\begin{tabular}{lrrrrrr}",
+        r"\toprule",
+        r"Error pattern & Gold ATE & Proxy ATE & Gap & RMSE & $R^2$ & Top-two share \\",
+        r"\midrule",
+    ]
+    for row in rows:
+        lines.append(
+            f"{SCENARIO_LABELS[row['scenario']]} & "
+            f"{format_number(row['gold_ate'])} & "
+            f"{format_number(row['proxy_ate'])} & "
+            f"{format_number(row['endpoint_gap'])} & "
+            f"{format_number(row['rmse'])} & "
+            f"{format_number(row['r_squared'])} & "
+            f"{format_percent(row['top_two_absolute_share'])} \\\\"
+        )
+    lines.extend([r"\bottomrule", r"\end{tabular}"])
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def latex_budget_table(path: Path, rows: list[dict[str, Any]], clusters: int) -> None:
+    selected = {max(1, clusters // 10), clusters // 4, clusters // 2, clusters}
+    lines = [
+        r"\begin{tabular}{lrrrrrr}",
+        r"\toprule",
+        r"Error pattern & Gold clusters & Mean & SD & 5th & 95th & Tail risk \\",
+        r"\midrule",
+    ]
+    previous = ""
+    for row in rows:
+        if row["validated_clusters"] not in selected:
+            continue
+        if previous and row["scenario"] != previous:
+            lines.append(r"\addlinespace")
+        label = SCENARIO_LABELS[row["scenario"]] if row["scenario"] != previous else ""
+        lines.append(
+            f"{label} & {row['validated_clusters']} & "
+            f"{format_number(row['mean'])} & {format_number(row['sd'])} & "
+            f"{format_number(row['p05'])} & {format_number(row['p95'])} & "
+            f"{format_percent(row['tail_probability'])} \\\\"
+        )
+        previous = row["scenario"]
+    lines.extend([r"\bottomrule", r"\end{tabular}"])
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def style_axis(axis: plt.Axes) -> None:
+    axis.grid(axis="y", color="0.90", linewidth=0.6)
+    axis.spines[["top", "right"]].set_visible(False)
+    axis.tick_params(labelsize=9)
+
+
+def figure_same_mean(cfg: dict[str, Any], experiments: dict[str, Experiment]) -> None:
+    clusters = cfg["clusters"]
+    diffuse = experiments["diffuse"]
+    concentrated = experiments["concentrated"]
+    raw_diffuse = raw_swap_distributions(diffuse)
+    raw_concentrated = raw_swap_distributions(concentrated)
+
+    figure, axes = plt.subplots(1, 2, figsize=(10.5, 3.8))
+    sizes = np.arange(clusters + 1)
+    axes[0].plot(
+        sizes,
+        [np.mean(values) for values in raw_diffuse],
+        color="#0072B2",
+        linewidth=2.3,
+        label="Diffuse",
+    )
+    axes[0].plot(
+        sizes,
+        [np.mean(values) for values in raw_concentrated],
+        color="#D55E00",
+        linewidth=1.7,
+        linestyle="--",
+        label="Concentrated",
+    )
+    axes[0].axhline(TARGET_ATE, color="0.35", linewidth=1, linestyle=":")
+    axes[0].set_xlabel("Gold-labeled clusters")
+    axes[0].set_ylabel("Mean raw-swap ATE")
+    axes[0].set_title("A. The mean paths coincide")
+    axes[0].legend(frameon=False, fontsize=9)
+    style_axis(axes[0])
+
+    size = max(1, clusters // 4)
+    colors = {"Diffuse": "#0072B2", "Concentrated": "#D55E00"}
+    for label, experiment, distribution in (
+        ("Diffuse", diffuse, raw_diffuse[size]),
+        ("Concentrated", concentrated, raw_concentrated[size]),
+    ):
+        proxy_ate = difference_in_means(experiment.proxy, experiment.treatment)
+        movement = np.round(distribution - proxy_ate, 12)
+        values, counts = np.unique(movement, return_counts=True)
+        probability = counts / counts.sum()
+        axes[1].vlines(
+            values,
+            0,
+            probability,
+            color=colors[label],
+            linewidth=2,
+        )
+        axes[1].scatter(
+            values,
+            probability,
+            color=colors[label],
+            s=28,
+            label=label,
+            zorder=3,
+        )
+    axes[1].set_xlabel("Raw-swap ATE movement")
+    axes[1].set_ylabel("Exact probability")
+    axes[1].set_title(f"B. The {size}-cluster distributions differ")
+    axes[1].legend(frameon=False, fontsize=9)
+    style_axis(axes[1])
+    figure.tight_layout(w_pad=2.4)
+    figure.savefig(
+        Path(cfg["outdir"]) / "fig1_same_mean.png", dpi=220, bbox_inches="tight"
+    )
+    plt.close(figure)
+
+
+def figure_budget_distributions(
+    cfg: dict[str, Any], experiments: dict[str, Experiment]
+) -> None:
+    clusters = cfg["clusters"]
+    figure, axes = plt.subplots(1, 3, figsize=(11.5, 3.7), sharex=True, sharey=True)
+    sizes = np.arange(1, clusters + 1)
+    for axis, scenario in zip(axes, SCENARIOS, strict=True):
+        experiment = experiments[scenario]
+        distributions = scaled_swap_distributions(experiment)
+        q05 = np.array([np.quantile(distributions[size], 0.05) for size in sizes])
+        q25 = np.array([np.quantile(distributions[size], 0.25) for size in sizes])
+        q50 = np.array([np.quantile(distributions[size], 0.50) for size in sizes])
+        q75 = np.array([np.quantile(distributions[size], 0.75) for size in sizes])
+        q95 = np.array([np.quantile(distributions[size], 0.95) for size in sizes])
+        gold_ate = difference_in_means(experiment.gold, experiment.treatment)
+        axis.fill_between(sizes, q05, q95, color="#56B4E9", alpha=0.25, linewidth=0)
+        axis.fill_between(sizes, q25, q75, color="#0072B2", alpha=0.32, linewidth=0)
+        axis.plot(sizes, q50, color="#0072B2", linewidth=1.8)
+        axis.axhline(gold_ate, color="0.25", linewidth=1.1, linestyle=":")
+        axis.set_title(SCENARIO_LABELS[scenario])
+        axis.set_xlabel("Gold-labeled clusters")
+        axis.set_xlim(1, clusters)
+        style_axis(axis)
+    axes[0].set_ylabel("Design-scaled ATE estimate")
+    figure.tight_layout(w_pad=1.5)
+    figure.savefig(
+        Path(cfg["outdir"]) / "fig2_budget_distributions.png",
+        dpi=220,
+        bbox_inches="tight",
+    )
+    plt.close(figure)
+
+
+def find_budget_row(
+    rows: list[dict[str, Any]], scenario: str, size: int
+) -> dict[str, Any]:
+    return next(
+        row
+        for row in rows
+        if row["scenario"] == scenario and row["validated_clusters"] == size
+    )
+
+
+def write_macros(
+    path: Path,
+    scenario_rows: list[dict[str, Any]],
+    budget_rows: list[dict[str, Any]],
+    cfg: dict[str, Any],
+) -> None:
+    size = max(1, cfg["clusters"] // 4)
+    concentrated = find_budget_row(budget_rows, "concentrated", size)
+    diffuse = find_budget_row(budget_rows, "diffuse", size)
+    scenario_lookup = {row["scenario"]: row for row in scenario_rows}
+    experiment = make_experiment(
+        "concentrated",
+        cfg["clusters"],
+        cfg["cluster_size"],
+        cfg["seed"],
+    )
+    raw = raw_swap_distributions(experiment)[size]
+    proxy_ate = difference_in_means(experiment.proxy, experiment.treatment)
+    zero_move = float(np.mean(np.isclose(raw, proxy_ate)))
+    commands = {
+        "NumClusters": str(cfg["clusters"]),
+        "ClusterSize": str(cfg["cluster_size"]),
+        "GoldATE": format_number(scenario_lookup["diffuse"]["gold_ate"]),
+        "ProxyATE": format_number(scenario_lookup["diffuse"]["proxy_ate"]),
+        "EndpointGap": format_number(scenario_lookup["diffuse"]["endpoint_gap"]),
+        "PredictionRMSE": format_number(scenario_lookup["diffuse"]["rmse"]),
+        "BudgetExample": str(size),
+        "ConcentratedZeroMove": format_percent(zero_move, 1),
+        "DiffuseBudgetSD": format_number(diffuse["sd"]),
+        "ConcentratedBudgetSD": format_number(concentrated["sd"]),
+        "ConcentratedTailRisk": format_percent(concentrated["tail_probability"], 1),
+        "TailThreshold": format_number(TAIL_THRESHOLD),
+    }
+    path.write_text(
+        "".join(
+            f"\\newcommand{{\\{name}}}{{{value}}}\n" for name, value in commands.items()
+        ),
+        encoding="utf-8",
+    )
+
+
+def write_metadata(cfg: dict[str, Any]) -> None:
+    metadata = {key: value for key, value in cfg.items() if key != "outdir"}
+    metadata.update(
+        {
+            "scenarios": list(SCENARIOS),
+            "target_ate": TARGET_ATE,
+            "target_rmse": TARGET_RMSE,
+            "total_distortion": TOTAL_DISTORTION,
+            "tail_threshold": TAIL_THRESHOLD,
+            "enumeration": "exact fixed-size subsets",
+        }
+    )
+    (Path(cfg["outdir"]) / "metadata.json").write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
+def main() -> None:
     args = parse_args()
-    cfg = FAST.copy() if args.fast else DEFAULT.copy()
-    cfg["outdir"] = args.outdir
-    os.makedirs(cfg["outdir"], exist_ok=True)
+    cfg = configuration(args)
+    output_directory = Path(cfg["outdir"])
+    output_directory.mkdir(parents=True, exist_ok=True)
 
-    print("=" * 78)
-    print("VALIDATION SWAPS: REPLICATION")
-    print("=" * 78)
-    print(f"  n={cfg['n']}, n_val={cfg['n_val']}, "
-          f"n_sims_main={cfg['n_sims_main']}, "
-          f"n_sims_sens={cfg['n_sims_sens']}, "
-          f"delta={cfg['delta']}, seed={cfg['seed']}")
-    print(f"  Output: {cfg['outdir']}/")
-    t0 = time.time()
-
-    # Figures
-    figure_swap_paths(cfg)
-    figure_sim_anatomy(cfg)
-
-    # Tables
-    all_res = table_main(cfg)
-    figure_bias_bars(all_res, cfg)
-    table_precision(cfg)
-    table_audit_threshold(cfg)
-    table_val_size(cfg)
-
-    elapsed = time.time() - t0
-    m, s = divmod(int(elapsed), 60)
-    print(f"\nDone in {m}m {s}s. All outputs in {cfg['outdir']}/")
-    print("Files:")
-    for f in sorted(os.listdir(cfg["outdir"])):
-        print(f"  {f}")
+    started = time.time()
+    print("Validation-swap distributions")
+    print(
+        f"  clusters={cfg['clusters']}, cluster_size={cfg['cluster_size']}, "
+        f"seed={cfg['seed']}"
+    )
+    experiments = make_experiments(cfg)
+    scenario_rows = scenario_table(cfg, experiments)
+    budget_rows = budget_table(cfg, experiments)
+    figure_same_mean(cfg, experiments)
+    figure_budget_distributions(cfg, experiments)
+    latex_scenario_table(output_directory / "table_scenarios.tex", scenario_rows)
+    latex_budget_table(
+        output_directory / "table_budgets.tex", budget_rows, cfg["clusters"]
+    )
+    write_macros(output_directory / "macros.tex", scenario_rows, budget_rows, cfg)
+    write_metadata(cfg)
+    elapsed = time.time() - started
+    print(f"Completed in {elapsed:.1f}s. Outputs: {output_directory}")
 
 
 if __name__ == "__main__":

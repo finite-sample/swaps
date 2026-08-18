@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "validation-swaps"
+version = "0.1.0"
+description = "Exact validation-swap distributions for machine-scored experiments"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib>=3.10",
+    "numpy>=2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=25.1",
+    "flake8>=7.2",
+    "isort>=6.0",
+    "pytest>=8.3",
+    "ruff>=0.11",
+]
+
+[tool.setuptools]
+py-modules = ["replicate_final"]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
