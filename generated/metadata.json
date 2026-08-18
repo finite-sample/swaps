@@ -1,0 +1,15 @@
+{
+  "cluster_size": 50,
+  "clusters": 20,
+  "enumeration": "exact fixed-size subsets",
+  "scenarios": [
+    "diffuse",
+    "concentrated",
+    "offsetting"
+  ],
+  "seed": 2024,
+  "tail_threshold": 0.05,
+  "target_ate": 0.1,
+  "target_rmse": 0.2,
+  "total_distortion": 0.04
+}
