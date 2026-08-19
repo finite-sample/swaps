@@ -34,9 +34,9 @@ $$
 \frac{G}{k}\sum_{g\in S_k}\psi_g
 $$
 
-is a standard Horvitz-Thompson difference correction and a simple prediction-powered estimator. The paper does not claim a new correction estimator. Its contribution is to use the full fixed-budget distribution as an estimand-specific validation diagnostic.
+is a standard Horvitz-Thompson difference correction and a simple prediction-powered estimator. What is new is the object: the exact distribution of this estimator over labeling designs, used to price a validation budget before it is spent.
 
-Four formal propositions sharpen the diagnostic. A sharp Cauchy-Schwarz bound, $|\widehat\tau_G-\widehat\tau_P|\le r\sqrt{N(1/N_1+1/N_0)}$, shows accuracy metrics constrain the endpoint gap only at the order of the RMSE $r$: the bound is 0.40 in the generated design against a gold effect of 0.10. The $k=1$ swap distribution identifies the multiset of cluster contributions, which determines every fixed-budget distribution, while the mean path depends only on their sum. The sample variance of the observed contributions is design-unbiased for $S_\psi^2$, so one validation draw prices the variance of every counterfactual budget. And by the Hajek negligibility condition, the swap distribution is approximately normal only when no small set of clusters dominates the centered squared contributions, so moment-based budget planning fails exactly in the concentrated case the diagnostic exists to detect.
+Three propositions and a remark sharpen the diagnostic. A sharp Cauchy-Schwarz bound, $|\widehat\tau_G-\widehat\tau_P|\le r\sqrt{N(1/N_1+1/N_0)}$, shows accuracy metrics constrain the endpoint gap only at the order of the RMSE $r$: the bound is 0.40 in the generated design against a gold effect of 0.10. The $k=1$ swap distribution identifies the multiset of cluster contributions, which determines every fixed-budget distribution, while the mean path depends only on their sum. The sample variance of the observed contributions is design-unbiased for $S_\psi^2$, so one validation draw prices the variance of every counterfactual budget. And by the Hajek negligibility condition, the swap distribution is approximately normal only when no small set of clusters dominates the centered squared contributions, so moment-based budget planning fails exactly in the concentrated case the diagnostic exists to detect.
 
 ## Numerical design
 
@@ -104,7 +104,7 @@ uv run make check
 uv run make paper
 ```
 
-`make check` runs Black, isort, Flake8, Ruff, and pytest. `make paper` regenerates the exact analysis and compiles the manuscript twice. The local container target uses the standard Python 3.13 image:
+`make check` runs Black, isort, Flake8, Ruff, and pytest. `make paper` regenerates the exact analysis and compiles the manuscript, including the bibliography. The local container target uses the standard Python 3.13 image:
 
 ```bash
 make ci-docker

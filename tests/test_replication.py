@@ -167,8 +167,7 @@ def test_group_error_enters_through_arm_imbalance() -> None:
 
 
 def test_swap_distributions_depend_only_on_the_contribution_multiset() -> None:
-    experiment = replication.make_experiment("concentrated")
-    contributions = experiment.contributions
+    contributions = replication.make_experiment("concentrated").contributions
     permuted = np.random.default_rng(7).permutation(contributions)
     original = replication.exact_subset_sums(contributions)
     shuffled = replication.exact_subset_sums(permuted)
@@ -176,10 +175,19 @@ def test_swap_distributions_depend_only_on_the_contribution_multiset() -> None:
     for size in range(len(contributions) + 1):
         assert np.allclose(np.sort(original[size]), np.sort(shuffled[size]))
 
+
+def test_mean_path_depends_only_on_the_contribution_sum() -> None:
     diffuse = replication.raw_swap_distributions(replication.make_experiment("diffuse"))
-    concentrated = replication.raw_swap_distributions(experiment)
+    concentrated = replication.raw_swap_distributions(
+        replication.make_experiment("concentrated")
+    )
+    offsetting = replication.raw_swap_distributions(
+        replication.make_experiment("offsetting")
+    )
+
     for one, other in zip(diffuse, concentrated, strict=True):
         assert np.isclose(np.mean(one), np.mean(other))
+    assert not np.isclose(np.mean(offsetting[5]), np.mean(concentrated[5]))
 
 
 def test_sample_variance_is_design_unbiased_for_contribution_variance() -> None:

@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## v0.2.0 - 2026-08-18
 
+- Unify the related-diagnostics discussion around one reweighting construction with three multiplier laws: signs for assignment uncertainty (wild cluster bootstrap), inclusion indicators for labeling-design dependence (this paper), and adversarial zeros for dropping-data robustness.
+- Reorganize the manuscript into seven sections whose titles carry the argument: setup, base case, what clustering breaks, the swap distribution, a worked example, related diagnostics, use and limits.
 - Add four formal propositions to the paper: a sharp Cauchy-Schwarz bound on the endpoint gap at fixed RMSE, multiset sufficiency and mean-path coarseness, design-unbiased estimation of the budget-variance path from one validation draw, and the Hajek negligibility condition for Normal approximation of the swap distribution.
 - Add `worst_case_gap` and `hajek_ratio` with enumeration-backed tests for each proposition, and new manuscript macros for the bound and the concentration shares.
 - Replace the inline bibliography with a Crossref-validated `references.bib`, switch to natbib author-year citations, and add the missing foundational literature (Horvitz-Thompson, Neyman two-phase sampling, the survey difference estimator, PPI++, active statistical inference, and LLM annotation).
