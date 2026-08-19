@@ -52,6 +52,11 @@ def test_generated_results_show_same_accuracy_and_different_fragility() -> None:
     assert np.isclose(float(concentrated["endpoint_gap"]), 0.04)
     assert float(diffuse_five["sd"]) < 1e-12
     assert float(concentrated_five["sd"]) > 0.04
+    assert float(concentrated_five["normal_tail_probability"]) > 4 * float(
+        concentrated_five["tail_probability"]
+    )
+    offsetting_one = find_row(budgets, "offsetting", 1)
+    assert float(offsetting_one["sign_reversal_probability"]) > 0.05
 
 
 def test_manuscript_inputs_are_generated_artifacts() -> None:
@@ -60,8 +65,6 @@ def test_manuscript_inputs_are_generated_artifacts() -> None:
         "macros.tex",
         "table_budgets.tex",
         "table_scenarios.tex",
-        "fig1_same_mean.png",
-        "fig2_budget_distributions.png",
     }
 
     for filename in required:

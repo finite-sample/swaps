@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Add four formal propositions to the paper: a sharp Cauchy-Schwarz bound on the endpoint gap at fixed RMSE, multiset sufficiency and mean-path coarseness, design-unbiased estimation of the budget-variance path from one validation draw, and the Hajek negligibility condition for Normal approximation of the swap distribution.
+- Add `worst_case_gap` and `hajek_ratio` with enumeration-backed tests for each proposition, and new manuscript macros for the bound and the concentration shares.
+- Replace the inline bibliography with a Crossref-validated `references.bib`, switch to natbib author-year citations, and add the missing foundational literature (Horvitz-Thompson, Neyman two-phase sampling, the survey difference estimator, PPI++, active statistical inference, and LLM annotation).
+- Cut the figures entirely: the constructed example's evidence is exact numbers, so the budget table now carries them, gaining a Normal-price column that shows the variance-based price erring in both directions while the exact price is non-monotone in the budget. matplotlib is no longer a dependency.
+- Demote the mean-path/multiset proposition to a prose remark; reframe the abstract around pricing validation labeling designs.
+- Position the diagnostic against dropping-data robustness metrics, and report the sign-reversal probability the manuscript had promised but never shown.
+- Fix README math to GitHub-rendered `$`/`$$` delimiters.
+
 ## v0.1.0 - 2026-08-18
 
 - Introduce exact validation-swap distributions for machine-scored experimental outcomes.

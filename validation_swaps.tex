@@ -3,14 +3,14 @@
 \usepackage[margin=1in]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
-\usepackage{amsmath,amssymb}
+\usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs,tabularx,array}
-\usepackage{graphicx}
 \usepackage{float}
 \usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{setspace}
 \usepackage{caption}
+\usepackage[round]{natbib}
 
 \hypersetup{
   colorlinks=true,
@@ -27,6 +27,7 @@
 \newcommand{\E}{\mathbb{E}}
 \newcommand{\V}{\mathbb{V}}
 \newcommand{\1}{\mathbf{1}}
+\newtheorem{proposition}{Proposition}
 \input{generated/macros.tex}
 
 \title{\textbf{Validation-Swap Distributions}\\[0.35em]
@@ -38,28 +39,38 @@
 \maketitle
 
 \begin{abstract}
-Researchers increasingly use machine predictions or large language model scores
-as experimental outcomes, then obtain human labels for a smaller validation
-sample. Average prediction accuracy does not show whether scoring error distorts
-the treatment contrast. We study the distribution of treatment-effect estimates
-over fixed-size sets of clusters whose machine scores are replaced by human
-labels. For a linear treatment contrast, the mean raw-swap path is mechanically
-determined by its endpoints. Its dispersion and tails contain the information
-about whether distortion is diffuse, concentrated, or offsetting. Scaling the
-swap correction by its sampling probability yields a standard design-based
-difference estimator, not a new correction method. The swap distribution instead
-shows how the corrected estimate varies with the realized validation sample. In
-an exactly enumerated experiment, two scoring systems have the same RMSE,
-$R^2$, proxy effect, gold effect, and mean swap path, yet a five-cluster swap has
-no effect \ConcentratedZeroMove\ of the time when scoring error is concentrated.
-The diagnostic is conditional on the observed gold-label pool. Population
-inference still requires a probability validation design or a transport model.
+In an experiment with clustered treatment assignment, a machine-learning or
+large language model scores every outcome, and human labels are affordable for
+only some clusters. Before coding begins, the researcher must decide how many
+clusters to validate, and the decision requires knowing what each budget buys.
+Two-phase and prediction-powered estimators correct the treatment effect with
+the labeled clusters, and power analysis prices a labeling design by the
+estimator's asymptotic variance. When scoring error is concentrated in a few
+clusters, the variance misprices the risk: the corrected estimate's
+distribution across possible label sets is discrete and far from Normal, with
+most draws moving the estimate not at all and a few moving it far. We price
+the design by that distribution itself. For each budget $k$ we swap human
+labels into a set of $k$ clusters, recompute the treatment effect, and
+enumerate all sets exactly, which is feasible in benchmarks, pilots, and fully
+coded studies used to plan smaller budgets. As $k$ grows, the mean of the
+distribution moves on a straight line from the machine-scored estimate to the
+fully human-coded one, whatever the error structure, so everything that
+distinguishes labeling designs lies in the dispersion and tails. In a worked
+example, two scoring systems agree on RMSE, $R^2$, both endpoints, and the
+entire mean path, yet when the error sits in two of twenty clusters, labeling
+five clusters leaves the estimate unchanged \ConcentratedZeroMove\ of the
+time. With a single real validation draw the full distribution is out of
+reach, but its variance at every budget remains estimable without bias, and a
+negligibility condition says when a Normal approximation can be trusted: only
+when no small set of clusters dominates the correction. The distribution
+conditions on the observed pool of gold labels; inference about the population
+still requires a probability validation design or a transport model.
 \end{abstract}
 
 Researchers can score every response in an experiment with a classifier, a
 computer-vision model, or a large language model while paying human coders to
-score only a fraction. The cheap score may have excellent test-set accuracy and
-still distort the treatment effect. The relevant error is not average scoring
+score only a fraction \citep{gilardi2023}. The cheap score may have excellent
+test-set accuracy and still distort the treatment effect. The relevant error is not average scoring
 error. It is the difference in scoring error between treatment arms.
 
 Suppose an experiment tests whether a message changes the hostility expressed in
@@ -74,26 +85,52 @@ Existing methods already correct downstream inference with a small set of gold
 labels. Post-prediction inference, design-based supervised learning, and
 prediction-powered inference combine predictions on many observations with
 gold-label residuals on a smaller probability sample
-\cite{wang2020,egami2023,angelopoulos2023}. Two-phase validation designs study
-how to select the expensive measurements efficiently \cite{amorim2021}. Work on
-text as data explains why a learned outcome requires separate measurement and
-causal design choices \cite{egami2022}. These methods establish the estimator
-and its uncertainty.
+\citep{wang2020,egami2023,angelopoulos2023,angelopoulos2023ppi}. Two-phase
+designs for allocating expensive measurements go back to
+\citet{neyman1938}; modern treatments choose the validation sample to minimize
+the variance of a target estimator \citep{amorim2021}, including adaptively
+\citep{zrnic2024}. Parallel corrections exist when the machine prediction
+enters the analysis as a regression covariate rather than the outcome
+\citep{fong2021}. Work on text as data explains why a learned outcome
+requires separate measurement and causal design choices \citep{egami2022}.
+These methods establish the estimator and its uncertainty.
 
 This paper asks a different question: how much does the answer depend on which
 clusters receive the gold labels? We define the fixed-budget random-swap
 distribution of the treatment-effect estimate. Its mean is often uninformative.
 Its spread shows whether a validation budget produces a stable correction or a
 lottery. Its tails show how often the estimate moves by more than a prespecified
-substantive amount. The same construction applies to people, documents, sites,
-or other sampling units, but the swap unit must match the validation design and
-the dependence structure.
+substantive amount.
+
+Throughout, treatment is assigned at the cluster level, as in a site-,
+classroom-, or wave-randomized experiment. That scope makes the cluster the
+natural unit for this question for the same reason it is the unit of
+inference: the treatment contrast is a difference of arm means, so scoring
+error distorts it only through within-cluster sums. Scoring
+failures also concentrate by cluster in practice: a model that misreads one
+site's context is wrong for that whole site, and human recoding is organized
+in the same batches. A validation draw therefore reveals cluster-level
+contributions, and the corrected estimate inherits the randomness of which
+clusters were drawn. Validating individuals is the special case of clusters of
+size one. With many independent errors the correction is a sum of small terms,
+stable across draws and close to Normal, and the diagnostic adds little. The
+fragility this paper studies is a few-effective-units phenomenon, and cluster
+structure is how experiments end up with few effective units. The same
+construction applies to documents, sites, waves, or any other sampling unit,
+provided the swap unit matches the validation design and contains the error
+dependence.
 
 The contribution is deliberately narrow. The design-scaled estimator below is a
 special case of established difference and prediction-powered estimators. The
 finite-population variance formula is standard sampling theory. We use these
-results to define an estimand-specific validation diagnostic and to show why an
-average swap path can hide the feature an audit is meant to find.
+results to define an estimand-specific validation diagnostic, and we state four
+formal properties: a sharp bound on how little accuracy metrics constrain the
+treatment contrast, the exact sense in which the mean swap path is
+uninformative, design-unbiased estimation of the full budget-variance path from
+one validation draw, and the negligibility condition under which moment
+summaries with a Normal approximation suffice. Each is a short application of
+standard results; together they show why an average swap path can hide the
+feature an audit is meant to find.
 
 \section{Machine scores as experimental outcomes}
 
@@ -146,6 +183,38 @@ treated and control weights in equation~\eqref{eq:psi}. The same adding-up and
 sampling identities follow. A nonlinear estimator can still be recomputed over
 swap sets, but its mean path need not be linear.
 
+The introduction's claim that aggregate accuracy cannot certify the treatment
+contrast can be made exact. Let $N=N_1+N_0$ and let
+$r=(N^{-1}\sum_g\sum_i e_{gi}^2)^{1/2}$ be the root mean squared error of the
+machine score on the experimental sample.
+
+\begin{proposition}[Sharp accuracy bound]
+\label{prop:bound}
+For every error configuration with root mean squared error $r$,
+\begin{equation}
+|\widehat\tau_G-\widehat\tau_P|
+\le r\sqrt{N\left(\frac{1}{N_1}+\frac{1}{N_0}\right)},
+\label{eq:bound}
+\end{equation}
+with equality exactly when $e_{gi}$ is proportional to $1/N_1$ on treated
+observations and $-1/N_0$ on control observations.
+\end{proposition}
+
+\begin{proof}
+The gap $\widehat\tau_G-\widehat\tau_P=\sum_g\sum_i w_{gi}e_{gi}$ is linear in
+the errors, with weights $w_{gi}=1/N_1$ when $D_g=1$ and $w_{gi}=-1/N_0$ when
+$D_g=0$. By the Cauchy--Schwarz inequality its absolute value is at most
+$\|w\|\,\|e\|$, where $\|w\|^2=1/N_1+1/N_0$ and $\|e\|^2=Nr^2$, with equality
+exactly when $e$ is proportional to $w$.
+\end{proof}
+
+The bound is attainable, and it is weak at the scale that matters. In the
+numerical design below, RMSE \PredictionRMSE\ permits an endpoint gap as large
+as \WorstCaseGap, \WorstCaseGapMultiple\ times the gold treatment effect of
+\GoldATE. Accuracy metrics constrain the contrast only at the order of $r$
+itself, while the errors that matter are the arm-aligned ones that
+equation~\eqref{eq:bound} shows accuracy tolerates.
+
 \section{The fixed-budget swap distribution}
 
 Let $S_k$ be a simple random sample without replacement of exactly $k$ clusters.
@@ -178,7 +247,15 @@ the average raw-swap path must be a straight line connecting the proxy and gold
 estimates. Any two scoring systems with the same endpoints have the same mean
 path. The path says nothing about whether the correction is spread evenly
 across clusters or concentrated in a few. Equation~\eqref{eq:rawvar} shows where
-that information resides.
+that information resides. Two further facts follow directly from
+equations~\eqref{eq:add} and~\eqref{eq:rawmean} and need no proof beyond
+arithmetic. The $k=1$ distribution is uniform on
+$\{\widehat\tau_P+\psi_g\}$, so it identifies the multiset of cluster
+contributions, and every fixed-$k$ distribution is a symmetric function of
+that multiset. The mean path, by contrast, depends on the contributions only
+through their sum: any two error patterns with the same endpoints share the
+entire mean path, however differently the correction is distributed across
+clusters.
 
 The distribution supports several descriptive summaries. A researcher can
 report its central quantiles, the chance that swapping $k$ clusters changes the
@@ -196,8 +273,10 @@ observed correction by its inclusion probability:
 =\widehat\tau_P+\frac{G}{k}\sum_{g\in S_k}\psi_g.
 \label{eq:ht}
 \end{equation}
-This is a Horvitz-Thompson difference correction. In this simple setting it is
-also the rectifier used by prediction-powered inference. It satisfies
+This is a Horvitz-Thompson difference correction
+\citep{horvitz1952,sarndal1992}. In this simple setting it is also the
+rectifier used by prediction-powered inference \citep{angelopoulos2023}. It
+satisfies
 \begin{align}
 \E_{S_k}[\widehat\tau_H(S_k)]&=\widehat\tau_G,
 \label{eq:htmean}\\
@@ -213,7 +292,7 @@ Unequal-probability validation replaces $G/k$ with inverse inclusion
 probabilities. Stratifying the validation draw by treatment arm or by an
 observable proxy-risk score can improve precision. Those choices change the
 swap distribution and must be included in its definition. The optimal choice
-depends on the target estimator \cite{amorim2021}.
+depends on the target estimator \citep{amorim2021,zrnic2024}.
 
 An exact distribution requires $\psi_g$ for every cluster in the finite pool.
 That is available in a benchmark dataset, a simulation, or a large pilot used to
@@ -224,14 +303,99 @@ are known. A cluster bootstrap or a model for $e_{gi}$ can approximate more of
 the distribution, but then the result depends on resampling or transport
 assumptions.
 
-\subsection{Why this is not the wild cluster bootstrap}
+The second moment of the swap distribution is nevertheless estimable from a
+single draw, at the observed budget and at every other one.
 
-The analogy to a wild cluster bootstrap is useful but incomplete. A wild
-cluster bootstrap applies mean-zero random multipliers to cluster score
-contributions to approximate a null sampling distribution
-\cite{cameron2008}. A validation swap applies zero-one inclusion indicators to
-observed gold-minus-proxy discrepancies. Its immediate target is the effect of a
-labeling design, not repeated-sample uncertainty under a null.
+\begin{proposition}[The variance path is estimable from one validation sample]
+\label{prop:varpath}
+Let $S_k$ be a simple random sample of $k\ge 2$ clusters, and let
+$s_\psi^2=(k-1)^{-1}\sum_{g\in S_k}(\psi_g-\bar\psi_{S_k})^2$ be the sample
+variance of the observed contributions. Then
+$\E_{S_k}[s_\psi^2]=S_\psi^2$. Substituting $s_\psi^2$ into
+equations~\eqref{eq:rawvar} and~\eqref{eq:htvar} therefore gives unbiased
+estimates of the raw and design-scaled swap variances at every budget
+$k'\in\{1,\ldots,G\}$, and Chebyshev's inequality bounds the tail probability
+$\Pr\{|\widehat\tau_H(S_{k'})-\widehat\tau_G|>\delta\}$ by
+$(G/k')^{2}k'(1-k'/G)\,S_\psi^2/\delta^{2}$ for every threshold $\delta>0$.
+\end{proposition}
+
+\begin{proof}
+Design-unbiasedness of the sample variance under simple random sampling
+without replacement is classical \citep{cochran1977,liding2017}. The variance
+claims substitute this estimate into the exact formulas, and the tail bound
+applies Chebyshev's inequality to the design-scaled estimator, which is
+centered on $\widehat\tau_G$ by equation~\eqref{eq:htmean}.
+\end{proof}
+
+A pilot at one budget therefore prices fragility at every other budget. This
+is the finite-population analogue of power analysis for prediction-powered
+inference, which chooses the labeled sample size from an asymptotic variance
+\citep{chen2026}. The estimate is honest but noisy: the sampling variance of
+$s_\psi^2$ depends on fourth moments of the contributions, so with few
+validated clusters and concentrated error the estimated variance path is
+itself fragile.
+
+Moment summaries also carry an implicit distributional assumption. The
+following negligibility condition, due to \citet{hajek1960} and stated here in
+the form of Theorem~1 of \citet{liding2017}, says when the swap distribution
+can be treated as Normal.
+
+\begin{proposition}[Normal approximations require diffuse contributions]
+\label{prop:normal}
+Embed the design in a sequence of finite populations with $G\to\infty$
+clusters and budgets $k=k(G)$. If
+\begin{equation}
+\frac{1}{\min(k,\,G-k)}\cdot
+\frac{\max_{g}(\psi_g-\bar\psi)^2}{S_\psi^2}\longrightarrow 0,
+\label{eq:hajek}
+\end{equation}
+then the standardized raw-swap estimate
+$\{\widehat\tau_R(S_k)-\E[\widehat\tau_R(S_k)]\}\big/\V[\widehat\tau_R(S_k)]^{1/2}$
+converges in distribution to a standard Normal, and the design-scaled
+estimate, an affine transformation at fixed $k$, converges with it. The
+condition fails when a bounded number of clusters carries a nonvanishing share
+of the centered squared contributions.
+\end{proposition}
+
+\begin{proof}
+The raw-swap estimate is $\widehat\tau_P$ plus $k$ times the sample mean of a
+simple random sample of the finite population $\{\psi_1,\ldots,\psi_G\}$, so
+the claim is the finite population central limit theorem for simple random
+sampling \citep{erdos1959,hajek1960}, in the sufficient form of Theorem~1 of
+\citet{liding2017}. Sharp necessary and sufficient conditions of Lindeberg type
+are in \citet{hajek1960}.
+\end{proof}
+
+The finite-sample diagnostic implied by condition~\eqref{eq:hajek} is the
+largest single-cluster share of the centered squared contributions. In the
+numerical design below, one cluster carries \HajekConcentrated\ of that total
+in the concentrated case and \HajekOffsetting\ in the offsetting case, and the
+diffuse case is degenerate. Budget planning that combines
+Proposition~\ref{prop:varpath} with a Normal approximation is therefore
+reliable exactly when the correction is diffuse, and misleading in the
+concentrated case the diagnostic exists to detect. That is the formal reason
+to examine the exact distribution rather than its first two moments.
+
+\subsection{Related subset diagnostics}
+
+Two neighboring diagnostics also perturb subsets of a completed analysis, and
+the contrasts locate the swap distribution precisely. A wild cluster
+bootstrap applies mean-zero random multipliers to cluster score contributions
+to approximate a null sampling distribution \citep{cameron2008}. A validation
+swap applies zero-one inclusion indicators to observed gold-minus-proxy
+discrepancies. Its immediate target is the effect of a labeling design, not
+repeated-sample uncertainty under a null.
+
+Dropping-data robustness metrics ask whether removing a small, adversarially
+chosen set of observations changes a conclusion, and locate that set with a
+first-order influence approximation because exact enumeration is infeasible
+\citep{giordano2026}. The swap construction differs on all three choices: the
+perturbed unit is the gold-label set rather than the data, the perturbation is
+a design-random draw rather than an adversarial deletion, and no approximation
+is needed because the linear contrast makes every swap effect exactly additive
+in the cluster contributions. The adversarial variant is nevertheless free
+here: the most adverse $k$-cluster validation draw is the sum of the $k$ most
+extreme contributions, read off by sorting the $\psi_g$.
 
 For the linear contrast,
 \[
@@ -277,56 +441,39 @@ outcomes. Quantities are deterministic for the generated finite population.
 \end{minipage}
 \end{table}
 
-Figure~\ref{fig:same-mean} gives the comparison the mean path misses. Panel A
-plots the exact mean over every fixed-size coalition. The diffuse and
-concentrated paths coincide. Panel B displays the exact mass function for a
-\BudgetExample-cluster raw swap. The diffuse correction always moves by the
-same amount. The concentrated correction does not move
-\ConcentratedZeroMove\ of the time because most coalitions contain neither
-high-error cluster.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=\linewidth]{generated/fig1_same_mean.png}
-\caption{The mean swap path and exact fixed-budget distributions. Panel A shows
-the mean raw-swap ATE over every set of a given size. The horizontal dotted line
-is the gold ATE. Panel B shows the exact probability mass of the raw ATE movement
-for every \BudgetExample-cluster subset. Both panels use the same
-\NumClusters-cluster finite population.}
-\label{fig:same-mean}
-\end{figure}
+The first two patterns share the entire mean swap path, so no average over
+validation draws can separate them. Every difference between them is
+distributional. Table~\ref{tab:budgets} prices that difference.
 
 \section{What a validation budget can deliver}
 
-Figure~\ref{fig:budgets} shows the design-scaled estimator in
-equation~\eqref{eq:ht}. The line is the median over all fixed-size validation
-sets. Dark and light regions contain the middle 50 and 90 percent of the exact
-distribution. Each distribution has mean \GoldATE\ by construction, but its
-shape depends on the allocation of $\psi_g$.
+Table~\ref{tab:budgets} prices each validation budget two ways. Tail risk is
+the exact share of validation sets whose scaled estimate lands more than
+\TailThreshold\ from the gold endpoint. The Normal price is the same
+probability computed from a Normal approximation with the correct
+finite-population variance of equation~\eqref{eq:htvar}, the summary a
+variance-based power analysis would use. The two prices agree only in the
+diffuse case, where every draw picks up the same correction and both are zero
+at every budget.
 
-The diffuse case is stable even with one labeled cluster because the example
-assigns every cluster the same contribution. Concentrated error produces a
-discrete and uneven distribution. Offsetting error is more revealing: the proxy
-and gold endpoints are identical, yet small validation samples can imply large
-positive or negative corrections. Endpoint agreement is therefore compatible
-with fragile validation evidence.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=\linewidth]{generated/fig2_budget_distributions.png}
-\caption{Exact design-scaled swap distributions by validation budget. The solid
-line is the median; dark and light regions contain the middle 50 and 90 percent
-of all fixed-size validation sets. The dotted line is the fully gold-labeled ATE.
-All panels share an axis.}
-\label{fig:budgets}
-\end{figure}
-
-Table~\ref{tab:budgets} reports exact numerical summaries. Tail risk is the
-share of validation sets whose scaled estimate differs from the gold endpoint
-by more than \TailThreshold. Bias is omitted because it is zero up to numerical
-precision for every cell. A narrow distribution does not prove that human
-labels measure the intended construct. It says only that the specified
-validation draw estimates the observed gold-label endpoint consistently.
+Concentrated error breaks the approximation in both directions. At
+\BudgetExample\ labeled clusters the Normal price is \ConcentratedNormalTail\
+against an exact \ConcentratedTailRisk, because \ConcentratedZeroMove\ of the
+draws contain neither high-error cluster and leave the estimate at the
+machine-scored value. The exact price is also not monotone in the budget: the
+distribution's few atoms cross the threshold at different budgets as the
+$G/k$ scaling shrinks, so offsetting risk climbs to \OffsettingTailPeak\ at
+\OffsettingTailPeakBudget\ labeled clusters before falling, while the Normal
+price declines smoothly and understates the risk where it is largest. A
+larger budget can carry more tail risk than a smaller one, and the
+variance-based price never shows it. Decision reversals price the same way:
+\OffsettingSignFlip\ of single-cluster draws in the offsetting case reverse
+the sign of the estimated effect, the analogue of the sign-change criterion in
+dropping-data robustness \citep{giordano2026}. Bias is omitted from the table because
+it is zero up to numerical precision for every cell. A narrow distribution
+does not prove that human labels measure the intended construct. It says only
+that the specified validation draw estimates the observed gold-label endpoint
+consistently.
 
 \begin{table}[H]
 \centering
@@ -340,8 +487,10 @@ validation draw estimates the observed gold-label endpoint consistently.
 \footnotesize
 \textit{Note:} Mean, SD, and quantiles describe equation~\eqref{eq:ht} over all
 fixed-size cluster samples. Tail risk is
-$\Pr(|\widehat\tau_H-\widehat\tau_G|>\TailThreshold)$. Enumeration is exact,
-not Monte Carlo. Gold ATE equals \GoldATE\ in every scenario.
+$\Pr(|\widehat\tau_H-\widehat\tau_G|>\TailThreshold)$, computed by exact
+enumeration, not Monte Carlo. Normal price is the same probability under a
+Normal approximation with the exact finite-population variance of
+equation~\eqref{eq:htvar}. Gold ATE equals \GoldATE\ in every scenario.
 \end{minipage}
 \end{table}
 
@@ -378,45 +527,7 @@ second when they correct the machine-scored contrast. The random-swap
 distribution makes validation-sample dependence visible by showing how much the
 conclusion depends on which clusters were checked.
 
-\begin{thebibliography}{99}
-
-\bibitem{amorim2021}
-Gustavo Amorim, Ran Tao, Sarah Lotspeich, Pamela A. Shaw, Thomas Lumley, and
-Bryan E. Shepherd. 2021.
-Two-phase sampling designs for data validation in settings with covariate
-measurement error and continuous outcome.
-\emph{Journal of the Royal Statistical Society: Series A} 184(4):1368-1389.
-
-\bibitem{angelopoulos2023}
-Anastasios N. Angelopoulos, Stephen Bates, Clara Fannjiang, Michael I. Jordan,
-and Tijana Zrnic. 2023.
-Prediction-powered inference.
-\emph{Science} 382(6671):669-674.
-
-\bibitem{cameron2008}
-A. Colin Cameron, Jonah B. Gelbach, and Douglas L. Miller. 2008.
-Bootstrap-based improvements for inference with clustered errors.
-\emph{Review of Economics and Statistics} 90(3):414-427.
-
-\bibitem{egami2022}
-Naoki Egami, Christian J. Fong, Justin Grimmer, Margaret E. Roberts, and
-Brandon M. Stewart. 2022.
-How to make causal inferences using texts.
-\emph{Science Advances} 8(42):eabg2652.
-
-\bibitem{egami2023}
-Naoki Egami, Musashi Hinck, Brandon M. Stewart, and Hanying Wei. 2023.
-Using imperfect surrogates for downstream inference: Design-based supervised
-learning for social science applications of large language models.
-\emph{Advances in Neural Information Processing Systems} 36.
-
-\bibitem{wang2020}
-Siruo Wang, Tyler H. McCormick, and Jeffrey T. Leek. 2020.
-Methods for correcting inference based on outcomes predicted by machine
-learning.
-\emph{Proceedings of the National Academy of Sciences}
-117(48):30266-30275.
-
-\end{thebibliography}
+\bibliographystyle{plainnat}
+\bibliography{references}
 
 \end{document}

@@ -24,6 +24,10 @@ def test_paper_build_sets_reproducible_pdf_environment(tmp_path: Path) -> None:
     )
     fake_pdflatex.chmod(0o755)
 
+    fake_bibtex = fake_bin / "bibtex"
+    fake_bibtex.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    fake_bibtex.chmod(0o755)
+
     environment = os.environ.copy()
     environment["PATH"] = f"{fake_bin}:{environment['PATH']}"
     environment["BUILD_LOG"] = str(build_log)
@@ -37,4 +41,4 @@ def test_paper_build_sets_reproducible_pdf_environment(tmp_path: Path) -> None:
         text=True,
     )
 
-    assert build_log.read_text(encoding="utf-8").splitlines() == ["0,1", "0,1"]
+    assert build_log.read_text(encoding="utf-8").splitlines() == ["0,1", "0,1", "0,1"]

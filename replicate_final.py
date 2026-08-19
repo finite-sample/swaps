@@ -1,4 +1,4 @@
-"""Generate the validation-swap distributions, tables, and figures."""
+"""Generate the validation-swap distributions, tables, and macros."""
 
 from __future__ import annotations
 
@@ -11,11 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import matplotlib.pyplot as plt
 import numpy as np
-
-plt.switch_backend("Agg")
-
 
 SCENARIOS = ("diffuse", "concentrated", "offsetting")
 SCENARIO_LABELS = {
@@ -234,6 +230,21 @@ def finite_population_variance(values: np.ndarray, size: int, scaled: bool) -> f
     return raw_variance
 
 
+def worst_case_gap(rmse: float, treated_n: int, control_n: int) -> float:
+    """Sharp Cauchy-Schwarz bound on the endpoint gap at a given RMSE."""
+    total = treated_n + control_n
+    return rmse * math.sqrt(total * (1 / treated_n + 1 / control_n))
+
+
+def hajek_ratio(values: np.ndarray) -> float:
+    """Largest single-cluster share of the centered sum of squares."""
+    centered = values - values.mean()
+    total = float(np.sum(centered**2))
+    if total == 0.0:
+        return 0.0
+    return float(np.max(centered**2) / total)
+
+
 def prediction_metrics(experiment: Experiment) -> tuple[float, float]:
     error = experiment.gold - experiment.proxy
     rmse = float(np.sqrt(np.mean(error**2)))
@@ -314,6 +325,14 @@ def budget_table(
                     "tail_probability": float(
                         np.mean(np.abs(estimates - gold_ate) > TAIL_THRESHOLD)
                     ),
+                    "normal_tail_probability": normal_tail_probability(
+                        TAIL_THRESHOLD,
+                        math.sqrt(
+                            finite_population_variance(
+                                experiment.contributions, size, scaled=True
+                            )
+                        ),
+                    ),
                     "sign_reversal_probability": float(
                         np.mean(np.sign(estimates) != np.sign(gold_ate))
                     ),
@@ -366,9 +385,10 @@ def latex_scenario_table(path: Path, rows: list[dict[str, Any]]) -> None:
 def latex_budget_table(path: Path, rows: list[dict[str, Any]], clusters: int) -> None:
     selected = {max(1, clusters // 10), clusters // 4, clusters // 2, clusters}
     lines = [
-        r"\begin{tabular}{lrrrrrr}",
+        r"\begin{tabular}{lrrrrrrr}",
         r"\toprule",
-        r"Error pattern & Gold clusters & Mean & SD & 5th & 95th & Tail risk \\",
+        r"Error pattern & Gold clusters & Mean & SD & 5th & 95th"
+        r" & Tail risk & Normal price \\",
         r"\midrule",
     ]
     previous = ""
@@ -382,118 +402,40 @@ def latex_budget_table(path: Path, rows: list[dict[str, Any]], clusters: int) ->
             f"{label} & {row['validated_clusters']} & "
             f"{format_number(row['mean'])} & {format_number(row['sd'])} & "
             f"{format_number(row['p05'])} & {format_number(row['p95'])} & "
-            f"{format_percent(row['tail_probability'])} \\\\"
+            f"{format_percent(row['tail_probability'])} & "
+            f"{format_percent(row['normal_tail_probability'])} \\\\"
         )
         previous = row["scenario"]
     lines.extend([r"\bottomrule", r"\end{tabular}"])
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def style_axis(axis: plt.Axes) -> None:
-    axis.grid(axis="y", color="0.90", linewidth=0.6)
-    axis.spines[["top", "right"]].set_visible(False)
-    axis.tick_params(labelsize=9)
+def normal_tail_probability(threshold: float, sd: float) -> float:
+    """Two-sided Normal tail mass beyond the threshold."""
+    if sd == 0.0:
+        return 0.0
+    return 1 + math.erf(-threshold / (sd * math.sqrt(2)))
 
 
-def figure_same_mean(cfg: dict[str, Any], experiments: dict[str, Experiment]) -> None:
-    clusters = cfg["clusters"]
-    diffuse = experiments["diffuse"]
-    concentrated = experiments["concentrated"]
-    raw_diffuse = raw_swap_distributions(diffuse)
-    raw_concentrated = raw_swap_distributions(concentrated)
+def exact_tail_path(experiment: Experiment, clusters: int) -> list[float]:
+    gold_ate = difference_in_means(experiment.gold, experiment.treatment)
+    distributions = scaled_swap_distributions(experiment)
+    return [
+        float(np.mean(np.abs(distributions[size] - gold_ate) > TAIL_THRESHOLD))
+        for size in range(1, clusters + 1)
+    ]
 
-    figure, axes = plt.subplots(1, 2, figsize=(10.5, 3.8))
-    sizes = np.arange(clusters + 1)
-    axes[0].plot(
-        sizes,
-        [np.mean(values) for values in raw_diffuse],
-        color="#0072B2",
-        linewidth=2.3,
-        label="Diffuse",
-    )
-    axes[0].plot(
-        sizes,
-        [np.mean(values) for values in raw_concentrated],
-        color="#D55E00",
-        linewidth=1.7,
-        linestyle="--",
-        label="Concentrated",
-    )
-    axes[0].axhline(TARGET_ATE, color="0.35", linewidth=1, linestyle=":")
-    axes[0].set_xlabel("Gold-labeled clusters")
-    axes[0].set_ylabel("Mean raw-swap ATE")
-    axes[0].set_title("A. The mean paths coincide")
-    axes[0].legend(frameon=False, fontsize=9)
-    style_axis(axes[0])
 
-    size = max(1, clusters // 4)
-    colors = {"Diffuse": "#0072B2", "Concentrated": "#D55E00"}
-    for label, experiment, distribution in (
-        ("Diffuse", diffuse, raw_diffuse[size]),
-        ("Concentrated", concentrated, raw_concentrated[size]),
-    ):
-        proxy_ate = difference_in_means(experiment.proxy, experiment.treatment)
-        movement = np.round(distribution - proxy_ate, 12)
-        values, counts = np.unique(movement, return_counts=True)
-        probability = counts / counts.sum()
-        axes[1].vlines(
-            values,
-            0,
-            probability,
-            color=colors[label],
-            linewidth=2,
+def normal_tail_path(experiment: Experiment, clusters: int) -> list[float]:
+    return [
+        normal_tail_probability(
+            TAIL_THRESHOLD,
+            math.sqrt(
+                finite_population_variance(experiment.contributions, size, scaled=True)
+            ),
         )
-        axes[1].scatter(
-            values,
-            probability,
-            color=colors[label],
-            s=28,
-            label=label,
-            zorder=3,
-        )
-    axes[1].set_xlabel("Raw-swap ATE movement")
-    axes[1].set_ylabel("Exact probability")
-    axes[1].set_title(f"B. The {size}-cluster distributions differ")
-    axes[1].legend(frameon=False, fontsize=9)
-    style_axis(axes[1])
-    figure.tight_layout(w_pad=2.4)
-    figure.savefig(
-        Path(cfg["outdir"]) / "fig1_same_mean.png", dpi=220, bbox_inches="tight"
-    )
-    plt.close(figure)
-
-
-def figure_budget_distributions(
-    cfg: dict[str, Any], experiments: dict[str, Experiment]
-) -> None:
-    clusters = cfg["clusters"]
-    figure, axes = plt.subplots(1, 3, figsize=(11.5, 3.7), sharex=True, sharey=True)
-    sizes = np.arange(1, clusters + 1)
-    for axis, scenario in zip(axes, SCENARIOS, strict=True):
-        experiment = experiments[scenario]
-        distributions = scaled_swap_distributions(experiment)
-        q05 = np.array([np.quantile(distributions[size], 0.05) for size in sizes])
-        q25 = np.array([np.quantile(distributions[size], 0.25) for size in sizes])
-        q50 = np.array([np.quantile(distributions[size], 0.50) for size in sizes])
-        q75 = np.array([np.quantile(distributions[size], 0.75) for size in sizes])
-        q95 = np.array([np.quantile(distributions[size], 0.95) for size in sizes])
-        gold_ate = difference_in_means(experiment.gold, experiment.treatment)
-        axis.fill_between(sizes, q05, q95, color="#56B4E9", alpha=0.25, linewidth=0)
-        axis.fill_between(sizes, q25, q75, color="#0072B2", alpha=0.32, linewidth=0)
-        axis.plot(sizes, q50, color="#0072B2", linewidth=1.8)
-        axis.axhline(gold_ate, color="0.25", linewidth=1.1, linestyle=":")
-        axis.set_title(SCENARIO_LABELS[scenario])
-        axis.set_xlabel("Gold-labeled clusters")
-        axis.set_xlim(1, clusters)
-        style_axis(axis)
-    axes[0].set_ylabel("Design-scaled ATE estimate")
-    figure.tight_layout(w_pad=1.5)
-    figure.savefig(
-        Path(cfg["outdir"]) / "fig2_budget_distributions.png",
-        dpi=220,
-        bbox_inches="tight",
-    )
-    plt.close(figure)
+        for size in range(1, clusters + 1)
+    ]
 
 
 def find_budget_row(
@@ -510,21 +452,22 @@ def write_macros(
     path: Path,
     scenario_rows: list[dict[str, Any]],
     budget_rows: list[dict[str, Any]],
+    experiments: dict[str, Experiment],
     cfg: dict[str, Any],
 ) -> None:
     size = max(1, cfg["clusters"] // 4)
     concentrated = find_budget_row(budget_rows, "concentrated", size)
     diffuse = find_budget_row(budget_rows, "diffuse", size)
     scenario_lookup = {row["scenario"]: row for row in scenario_rows}
-    experiment = make_experiment(
-        "concentrated",
-        cfg["clusters"],
-        cfg["cluster_size"],
-        cfg["seed"],
-    )
+    experiment = experiments["concentrated"]
     raw = raw_swap_distributions(experiment)[size]
     proxy_ate = difference_in_means(experiment.proxy, experiment.treatment)
     zero_move = float(np.mean(np.isclose(raw, proxy_ate)))
+    arm_n = cfg["clusters"] // 2 * cfg["cluster_size"]
+    gap_bound = worst_case_gap(scenario_lookup["diffuse"]["rmse"], arm_n, arm_n)
+    offsetting_tail = exact_tail_path(experiments["offsetting"], cfg["clusters"])
+    peak_index = int(np.argmax(offsetting_tail))
+    concentrated_normal = normal_tail_path(experiments["concentrated"], cfg["clusters"])
     commands = {
         "NumClusters": str(cfg["clusters"]),
         "ClusterSize": str(cfg["cluster_size"]),
@@ -538,6 +481,22 @@ def write_macros(
         "ConcentratedBudgetSD": format_number(concentrated["sd"]),
         "ConcentratedTailRisk": format_percent(concentrated["tail_probability"], 1),
         "TailThreshold": format_number(TAIL_THRESHOLD),
+        "WorstCaseGap": format_number(gap_bound),
+        "WorstCaseGapMultiple": format_number(
+            gap_bound / scenario_lookup["diffuse"]["gold_ate"], 0
+        ),
+        "HajekConcentrated": format_percent(
+            hajek_ratio(experiments["concentrated"].contributions)
+        ),
+        "HajekOffsetting": format_percent(
+            hajek_ratio(experiments["offsetting"].contributions)
+        ),
+        "OffsettingTailPeak": format_percent(offsetting_tail[peak_index]),
+        "OffsettingTailPeakBudget": str(peak_index + 1),
+        "ConcentratedNormalTail": format_percent(concentrated_normal[size - 1]),
+        "OffsettingSignFlip": format_percent(
+            find_budget_row(budget_rows, "offsetting", 1)["sign_reversal_probability"]
+        ),
     }
     path.write_text(
         "".join(
@@ -579,13 +538,13 @@ def main() -> None:
     experiments = make_experiments(cfg)
     scenario_rows = scenario_table(cfg, experiments)
     budget_rows = budget_table(cfg, experiments)
-    figure_same_mean(cfg, experiments)
-    figure_budget_distributions(cfg, experiments)
     latex_scenario_table(output_directory / "table_scenarios.tex", scenario_rows)
     latex_budget_table(
         output_directory / "table_budgets.tex", budget_rows, cfg["clusters"]
     )
-    write_macros(output_directory / "macros.tex", scenario_rows, budget_rows, cfg)
+    write_macros(
+        output_directory / "macros.tex", scenario_rows, budget_rows, experiments, cfg
+    )
     write_metadata(cfg)
     elapsed = time.time() - started
     print(f"Completed in {elapsed:.1f}s. Outputs: {output_directory}")

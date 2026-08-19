@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import itertools
 import math
 import subprocess
 import sys
@@ -119,6 +120,72 @@ def test_same_mean_can_hide_different_swap_distributions() -> None:
     assert np.std(concentrated_distribution) > 0.01
 
 
+def test_worst_case_gap_bound_holds_and_is_sharp() -> None:
+    experiment = replication.make_experiment("diffuse")
+    treatment = experiment.treatment
+    treated_n = int(np.sum(treatment == 1))
+    control_n = int(np.sum(treatment == 0))
+    bound = replication.worst_case_gap(replication.TARGET_RMSE, treated_n, control_n)
+
+    for scenario in replication.SCENARIOS:
+        candidate = replication.make_experiment(scenario)
+        gap = replication.difference_in_means(
+            candidate.gold, candidate.treatment
+        ) - replication.difference_in_means(candidate.proxy, candidate.treatment)
+        assert abs(gap) <= bound
+
+    aligned = np.where(treatment == 1, 1 / treated_n, -1 / control_n)
+    aligned *= (
+        replication.TARGET_RMSE
+        * math.sqrt(treated_n + control_n)
+        / np.linalg.norm(aligned)
+    )
+    achieved = aligned[treatment == 1].mean() - aligned[treatment == 0].mean()
+    assert np.isclose(achieved, bound)
+    assert np.isclose(np.sqrt(np.mean(aligned**2)), replication.TARGET_RMSE)
+
+
+def test_swap_distributions_depend_only_on_the_contribution_multiset() -> None:
+    experiment = replication.make_experiment("concentrated")
+    contributions = experiment.contributions
+    permuted = np.random.default_rng(7).permutation(contributions)
+    original = replication.exact_subset_sums(contributions)
+    shuffled = replication.exact_subset_sums(permuted)
+
+    for size in range(len(contributions) + 1):
+        assert np.allclose(np.sort(original[size]), np.sort(shuffled[size]))
+
+    diffuse = replication.raw_swap_distributions(replication.make_experiment("diffuse"))
+    concentrated = replication.raw_swap_distributions(experiment)
+    for one, other in zip(diffuse, concentrated, strict=True):
+        assert np.isclose(np.mean(one), np.mean(other))
+
+
+def test_sample_variance_is_design_unbiased_for_contribution_variance() -> None:
+    for scenario in replication.SCENARIOS:
+        contributions = replication.make_experiment(scenario).contributions
+        population_variance = np.var(contributions, ddof=1)
+        for size in (2, 5):
+            estimates = [
+                np.var(np.array(subset), ddof=1)
+                for subset in itertools.combinations(contributions, size)
+            ]
+            assert np.isclose(np.mean(estimates), population_variance)
+
+
+def test_hajek_ratio_flags_concentrated_contributions() -> None:
+    concentrated = replication.make_experiment("concentrated").contributions
+    offsetting = replication.make_experiment("offsetting").contributions
+    clusters = len(concentrated)
+    hot = replication.TOTAL_DISTORTION / 2
+    mean = replication.TOTAL_DISTORTION / clusters
+    expected = (hot - mean) ** 2 / (2 * (hot - mean) ** 2 + (clusters - 2) * mean**2)
+
+    assert np.isclose(replication.hajek_ratio(concentrated), expected)
+    assert np.isclose(replication.hajek_ratio(offsetting), 0.25)
+    assert replication.hajek_ratio(np.zeros(4)) == 0.0
+
+
 def test_cli_writes_all_declared_outputs(tmp_path: Path) -> None:
     command = [
         sys.executable,
@@ -130,8 +197,6 @@ def test_cli_writes_all_declared_outputs(tmp_path: Path) -> None:
     subprocess.run(command, check=True, capture_output=True, text=True)
 
     expected = {
-        "fig1_same_mean.png",
-        "fig2_budget_distributions.png",
         "macros.tex",
         "metadata.json",
         "table_budgets.csv",
