@@ -7,6 +7,7 @@
 - Replace the inline bibliography with a Crossref-validated `references.bib`, switch to natbib author-year citations, and add the missing foundational literature (Horvitz-Thompson, Neyman two-phase sampling, the survey difference estimator, PPI++, active statistical inference, and LLM annotation).
 - Cut the figures entirely: the constructed example's evidence is exact numbers, so the budget table now carries them, gaining a Normal-price column that shows the variance-based price erring in both directions while the exact price is non-monotone in the budget. matplotlib is no longer a dependency.
 - Demote the mean-path/multiset proposition to a prose remark; reframe the abstract around pricing validation labeling designs.
+- Rebuild the front of the paper as a base-case-then-boundary argument: under individual randomization, non-differential scoring error is balanced by design and only treatment-dependent error biases the contrast; a new section states the three things clustered assignment breaks, with the arm-imbalance identity test-gated.
 - Position the diagnostic against dropping-data robustness metrics, and report the sign-reversal probability the manuscript had promised but never shown.
 - Fix README math to GitHub-rendered `$`/`$$` delimiters.
 

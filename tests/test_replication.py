@@ -145,6 +145,27 @@ def test_worst_case_gap_bound_holds_and_is_sharp() -> None:
     assert np.isclose(np.sqrt(np.mean(aligned**2)), replication.TARGET_RMSE)
 
 
+def test_group_error_enters_through_arm_imbalance() -> None:
+    treated_n = control_n = 50
+    treatment = np.repeat([1, 0], 50)
+    group = np.zeros(100, dtype=int)
+    group[20:60] = 1
+    group[:10] = 2
+    means = np.array([0.0, 0.25, -0.4])
+    error = means[group]
+    weights = np.where(treatment == 1, 1 / treated_n, -1 / control_n)
+
+    for label, mu in enumerate(means):
+        rows = group == label
+        n1 = int(np.sum(rows & (treatment == 1)))
+        n0 = int(np.sum(rows & (treatment == 0)))
+        contribution = float(np.sum((weights * error)[rows]))
+        assert np.isclose(contribution, mu * (n1 / treated_n - n0 / control_n))
+
+    wholly_treated = float(np.sum((weights * error)[group == 2]))
+    assert np.isclose(wholly_treated, means[2] * 10 / treated_n)
+
+
 def test_swap_distributions_depend_only_on_the_contribution_multiset() -> None:
     experiment = replication.make_experiment("concentrated")
     contributions = experiment.contributions

@@ -41,7 +41,10 @@
 \begin{abstract}
 In an experiment with clustered treatment assignment, a machine-learning or
 large language model scores every outcome, and human labels are affordable for
-only some clusters. Before coding begins, the researcher must decide how many
+only some clusters. Had assignment been individual, fixed scoring error would
+be balanced by design and only treatment-dependent error would bias the
+contrast; clustering removes that protection, leaving few effective units for
+both balancing and validation. Before coding begins, the researcher must decide how many
 clusters to validate, and the decision requires knowing what each budget buys.
 Two-phase and prediction-powered estimators correct the treatment effect with
 the labeled clusters, and power analysis prices a labeling design by the
@@ -95,74 +98,165 @@ enters the analysis as a regression covariate rather than the outcome
 requires separate measurement and causal design choices \citep{egami2022}.
 These methods establish the estimator and its uncertainty.
 
-This paper asks a different question: how much does the answer depend on which
-clusters receive the gold labels? We define the fixed-budget random-swap
-distribution of the treatment-effect estimate. Its mean is often uninformative.
-Its spread shows whether a validation budget produces a stable correction or a
-lottery. Its tails show how often the estimate moves by more than a prespecified
-substantive amount.
+This paper asks how much the corrected answer depends on which clusters
+receive the gold labels, and builds the argument from the case where the
+answer is boring. In an individually randomized experiment, scoring error
+that is a fixed attribute of the response is balanced by randomization like
+any baseline covariate, however strongly it clusters by dialect, site, or
+coder batch. Only error that depends on treatment itself biases the contrast,
+and an ordinary validation sample corrects that bias with textbook two-phase
+theory. Clustered assignment removes this protection twice over: the
+balancing now operates over a few clusters rather than many individuals, and
+validation samples those same few clusters, so the correction inherits the
+randomness of which clusters were checked. We characterize that randomness
+exactly through the fixed-budget random-swap distribution of the
+treatment-effect estimate. Its spread shows whether a validation budget
+produces a stable correction or a lottery; its tails show how often the
+estimate moves by more than a prespecified substantive amount.
 
-Throughout, treatment is assigned at the cluster level, as in a site-,
-classroom-, or wave-randomized experiment. That scope makes the cluster the
-natural unit for this question for the same reason it is the unit of
-inference: the treatment contrast is a difference of arm means, so scoring
-error distorts it only through within-cluster sums. Scoring
-failures also concentrate by cluster in practice: a model that misreads one
-site's context is wrong for that whole site, and human recoding is organized
-in the same batches. A validation draw therefore reveals cluster-level
-contributions, and the corrected estimate inherits the randomness of which
-clusters were drawn. Validating individuals is the special case of clusters of
-size one. With many independent errors the correction is a sum of small terms,
-stable across draws and close to Normal, and the diagnostic adds little. The
-fragility this paper studies is a few-effective-units phenomenon, and cluster
-structure is how experiments end up with few effective units. The same
-construction applies to documents, sites, waves, or any other sampling unit,
-provided the swap unit matches the validation design and contains the error
-dependence.
-
-The contribution is deliberately narrow. The design-scaled estimator below is a
-special case of established difference and prediction-powered estimators. The
-finite-population variance formula is standard sampling theory. We use these
-results to define an estimand-specific validation diagnostic, and we state four
-formal properties: a sharp bound on how little accuracy metrics constrain the
-treatment contrast, the exact sense in which the mean swap path is
-uninformative, design-unbiased estimation of the full budget-variance path from
-one validation draw, and the negligibility condition under which moment
-summaries with a Normal approximation suffice. Each is a short application of
-standard results; together they show why an average swap path can hide the
-feature an audit is meant to find.
+The contribution is deliberately narrow. The estimator below is a special
+case of established difference and prediction-powered estimators, and each
+formal result is a short application of standard sampling theory. What is new
+is the object: the exact distribution of the corrected estimate over labeling
+designs, used to price a validation budget before it is spent.
 
 \section{Machine scores as experimental outcomes}
 
-Index experimental clusters by $g=1,\ldots,G$ and observations within clusters
-by $i$. Treatment $D_g\in\{0,1\}$ is assigned at the cluster level. Let $Y_{gi}$
-be the human-coded outcome and $\widehat Y_{gi}$ the machine score. Define the
-observed scoring discrepancy
+An experiment measures an outcome for units $i=1,\ldots,N$, of which $N_1$
+are treated and $N_0$ are control. Human coding of the outcome $Y_i$ is
+expensive, so a machine score $\widehat Y_i$ stands in for it. Define the
+scoring error
 \begin{equation}
-e_{gi}=Y_{gi}-\widehat Y_{gi}.
+e_i=Y_i-\widehat Y_i.
 \label{eq:error}
 \end{equation}
 The machine score must be fixed independently of the outcome analysis. A score
 learned on the experimental outcomes requires a separate training sample or an
 appropriate cross-fitting design. Swaps do not repair overfitting.
 
-For clarity, consider the unadjusted difference in means. Write $N_1$ and $N_0$
-for the numbers of observations in treated and control clusters. The proxy and
-gold estimates are
+For clarity, consider the unadjusted difference in means. The proxy and gold
+estimates are
 \begin{align}
 \widehat\tau_P
-&=\frac{1}{N_1}\sum_{g:D_g=1}\sum_i\widehat Y_{gi}
--\frac{1}{N_0}\sum_{g:D_g=0}\sum_i\widehat Y_{gi},\\
+&=\frac{1}{N_1}\sum_{i:D_i=1}\widehat Y_i
+-\frac{1}{N_0}\sum_{i:D_i=0}\widehat Y_i,\\
 \widehat\tau_G
-&=\frac{1}{N_1}\sum_{g:D_g=1}\sum_iY_{gi}
--\frac{1}{N_0}\sum_{g:D_g=0}\sum_iY_{gi}.
+&=\frac{1}{N_1}\sum_{i:D_i=1}Y_i
+-\frac{1}{N_0}\sum_{i:D_i=0}Y_i,
 \end{align}
-Random treatment assignment gives these contrasts their experimental
-interpretation. Validation sampling is a second design layered on top of the
-experiment. It determines what can be learned about
-$\widehat\tau_G-\widehat\tau_P$ when $Y$ is expensive.
+and their gap is a weighted sum of the errors,
+\begin{equation}
+\widehat\tau_G-\widehat\tau_P=\sum_{i=1}^{N}w_ie_i,
+\qquad
+w_i=\frac{D_i}{N_1}-\frac{1-D_i}{N_0}.
+\label{eq:gap}
+\end{equation}
+Whether scoring error is a problem is entirely a question about this weighted
+sum. Error orthogonal to the treatment weights leaves the contrast intact no
+matter how large the errors are.
 
-Define cluster $g$'s contribution to this endpoint gap as
+Like outcomes, errors have potential values: $e_i(d)=Y_i(d)-\widehat Y_i(d)$
+for assignment $d\in\{0,1\}$. Call the error \emph{non-differential} when
+$e_i(1)=e_i(0)$, so the score misreads unit $i$'s response by the same amount
+under either assignment. \emph{Differential} error, such as a model that
+misreads the style treated respondents adopt, violates this condition.
+
+Sections~\ref{sec:base} and~\ref{sec:breaks} take expectations over treatment
+assignment to establish orders of magnitude. From
+Section~\ref{sec:swap} onward the analysis conditions on the realized
+experiment: outcomes, scores, and assignment are fixed, and the only
+randomness studied is the validation draw.
+
+\section{The base case: individually randomized experiments}
+\label{sec:base}
+
+Assign treatment by complete randomization at the individual level. Under
+non-differential error, each $e_i$ is a fixed attribute of unit $i$, and the
+gap in equation~\eqref{eq:gap} averages fixed numbers over a random
+assignment:
+\begin{equation}
+\E_R\!\left[\widehat\tau_G-\widehat\tau_P\right]=0,
+\qquad
+\V_R\!\left[\widehat\tau_G-\widehat\tau_P\right]
+=\left(\frac{1}{N_1}+\frac{1}{N_0}\right)S_e^2,
+\label{eq:basecase}
+\end{equation}
+where $S_e^2$ is the finite-population variance of the errors and $\E_R$
+averages over assignments. Scoring error behaves exactly like a baseline
+covariate: randomization balances it, and its realized imbalance is
+$O_p(N^{-1/2})$ noise of the same order as the sampling variability the
+standard error already reports.
+
+Group structure in the errors changes nothing. If a group $h$ of $n_h$ units
+--- a dialect, a site, a coder batch --- shares a common error component
+$\mu_h$, its contribution to the gap is
+\begin{equation}
+\mu_h\left(\frac{n_{h1}}{N_1}-\frac{n_{h0}}{N_0}\right),
+\label{eq:imbalance}
+\end{equation}
+where $n_{h1}$ and $n_{h0}$ count the group's treated and control units.
+Under individual randomization the imbalance in parentheses is
+$O_p(\sqrt{n_h}/N)$: group-correlated error cancels across arms because
+randomization splits every group.
+
+The one threat that survives the base case is differential error. If
+$e_i(1)\neq e_i(0)$, the gap converges to the average error contrast
+$\E[e(1)-e(0)]$, a bias no sample size repairs. Even then nothing bespoke is
+required: a simple random sample of $m$ units receives human labels, the
+paired discrepancies estimate the bias at rate $m^{-1/2}$, and the standard
+two-phase and prediction-powered corrections apply with independent-sampling
+theory \citep{neyman1938,angelopoulos2023}.
+
+What cannot substitute for those labels is an accuracy audit.
+
+\begin{proposition}[Sharp accuracy bound]
+\label{prop:bound}
+Let $r=(N^{-1}\sum_ie_i^2)^{1/2}$ be the root mean squared error of the
+machine score on the experimental sample. For every error configuration,
+\begin{equation}
+|\widehat\tau_G-\widehat\tau_P|
+\le r\sqrt{N\left(\frac{1}{N_1}+\frac{1}{N_0}\right)},
+\label{eq:bound}
+\end{equation}
+with equality exactly when $e_i$ is proportional to the contrast weight
+$w_i$.
+\end{proposition}
+
+\begin{proof}
+The gap in equation~\eqref{eq:gap} is linear in the errors. By the
+Cauchy--Schwarz inequality its absolute value is at most $\|w\|\,\|e\|$,
+where $\|w\|^2=1/N_1+1/N_0$ and $\|e\|^2=Nr^2$, with equality exactly when
+$e$ is proportional to $w$.
+\end{proof}
+
+The bound is attainable, and it is weak at the scale that matters. In the
+numerical design below, RMSE \PredictionRMSE\ permits an endpoint gap as
+large as \WorstCaseGap, \WorstCaseGapMultiple\ times the gold treatment
+effect of \GoldATE. Accuracy metrics constrain the contrast only at the order
+of $r$ itself, and they cannot separate differential from non-differential
+error. That separation requires labels.
+
+\section{What clustered assignment breaks}
+\label{sec:breaks}
+
+Now assign treatment at the cluster level, as in a site-, classroom-, or
+wave-randomized experiment: clusters $g=1,\ldots,G$ with members indexed by
+$i$, treatment $D_g$ constant within cluster, and errors written $e_{gi}$.
+Three things break at once.
+
+First, the balancing in equation~\eqref{eq:basecase} now operates over $G$
+clusters rather than $N$ individuals. Over cluster randomization with equal
+cluster sizes and equal arms, the gap is still mean zero, but its standard
+deviation is $2S_\mu/\sqrt{G}$, where $S_\mu$ is the between-cluster standard
+deviation of mean scoring error. With twenty clusters and cluster-level error
+variation comparable to the effects under study, the realized experiment
+carries a gap of the same order as the estimand. What was vanishing noise is
+now a fixed, consequential number.
+
+Second, clusters are maximal-imbalance groups. Each cluster sits wholly in
+one arm, so the imbalance factor in equation~\eqref{eq:imbalance} takes its
+extreme value for every cluster-shaped error group, and nothing cancels
+within arms. Define cluster $g$'s contribution to the endpoint gap as
 \begin{equation}
 \psi_g=
 \begin{cases}
@@ -176,46 +270,26 @@ The contributions add exactly:
 \sum_{g=1}^{G}\psi_g=\widehat\tau_G-\widehat\tau_P.
 \label{eq:add}
 \end{equation}
-Equation~\eqref{eq:add} is an accounting identity within the paired gold-label
-pool. It does not identify the errors of unlabeled clusters.
-For OLS with fixed covariates, residualized-treatment weights replace the
-treated and control weights in equation~\eqref{eq:psi}. The same adding-up and
-sampling identities follow. A nonlinear estimator can still be recomputed over
-swap sets, but its mean path need not be linear.
+Equation~\eqref{eq:add} is an accounting identity within the paired
+gold-label pool. It does not identify the errors of unlabeled clusters. For
+OLS with fixed covariates, residualized-treatment weights replace the treated
+and control weights in equation~\eqref{eq:psi}, and the same adding-up and
+sampling identities follow; a nonlinear estimator can still be recomputed
+over swap sets, but its mean path need not be linear. When scoring failures
+are cluster-shaped --- a model that misreads one site's context is wrong for
+that whole site --- the gap concentrates in a few large $\psi_g$.
 
-The introduction's claim that aggregate accuracy cannot certify the treatment
-contrast can be made exact. Let $N=N_1+N_0$ and let
-$r=(N^{-1}\sum_g\sum_i e_{gi}^2)^{1/2}$ be the root mean squared error of the
-machine score on the experimental sample.
-
-\begin{proposition}[Sharp accuracy bound]
-\label{prop:bound}
-For every error configuration with root mean squared error $r$,
-\begin{equation}
-|\widehat\tau_G-\widehat\tau_P|
-\le r\sqrt{N\left(\frac{1}{N_1}+\frac{1}{N_0}\right)},
-\label{eq:bound}
-\end{equation}
-with equality exactly when $e_{gi}$ is proportional to $1/N_1$ on treated
-observations and $-1/N_0$ on control observations.
-\end{proposition}
-
-\begin{proof}
-The gap $\widehat\tau_G-\widehat\tau_P=\sum_g\sum_i w_{gi}e_{gi}$ is linear in
-the errors, with weights $w_{gi}=1/N_1$ when $D_g=1$ and $w_{gi}=-1/N_0$ when
-$D_g=0$. By the Cauchy--Schwarz inequality its absolute value is at most
-$\|w\|\,\|e\|$, where $\|w\|^2=1/N_1+1/N_0$ and $\|e\|^2=Nr^2$, with equality
-exactly when $e$ is proportional to $w$.
-\end{proof}
-
-The bound is attainable, and it is weak at the scale that matters. In the
-numerical design below, RMSE \PredictionRMSE\ permits an endpoint gap as large
-as \WorstCaseGap, \WorstCaseGapMultiple\ times the gold treatment effect of
-\GoldATE. Accuracy metrics constrain the contrast only at the order of $r$
-itself, while the errors that matter are the arm-aligned ones that
-equation~\eqref{eq:bound} shows accuracy tolerates.
+Third, validation must draw whole clusters, because human recoding is
+organized in the same batches as the scoring failures. The correction
+computed from $k$ labeled clusters is therefore a statistic of $k$ draws from
+a population of $G$ numbers that a few of them may dominate: few effective
+units, and no central limit comfort when the contributions concentrate. This
+is the setting the rest of the paper prices. The same construction applies to
+documents, waves, or any other sampling unit, provided the swap unit matches
+the validation design and contains the error dependence.
 
 \section{The fixed-budget swap distribution}
+\label{sec:swap}
 
 Let $S_k$ be a simple random sample without replacement of exactly $k$ clusters.
 The raw-swap estimate replaces machine scores by human outcomes in the selected
@@ -262,8 +336,6 @@ report its central quantiles, the chance that swapping $k$ clusters changes the
 estimate's sign, and the chance that the movement exceeds a prespecified
 substantive threshold. These probabilities refer to the stated swap design.
 They are not $p$-values.
-
-\section{From partial swaps to a validation estimator}
 
 Raw replacement mechanically shrinks as $k/G$ falls. If the goal is to estimate
 the fully human-coded contrast from a $k$-cluster probability sample, scale the
@@ -376,39 +448,7 @@ reliable exactly when the correction is diffuse, and misleading in the
 concentrated case the diagnostic exists to detect. That is the formal reason
 to examine the exact distribution rather than its first two moments.
 
-\subsection{Related subset diagnostics}
-
-Two neighboring diagnostics also perturb subsets of a completed analysis, and
-the contrasts locate the swap distribution precisely. A wild cluster
-bootstrap applies mean-zero random multipliers to cluster score contributions
-to approximate a null sampling distribution \citep{cameron2008}. A validation
-swap applies zero-one inclusion indicators to observed gold-minus-proxy
-discrepancies. Its immediate target is the effect of a labeling design, not
-repeated-sample uncertainty under a null.
-
-Dropping-data robustness metrics ask whether removing a small, adversarially
-chosen set of observations changes a conclusion, and locate that set with a
-first-order influence approximation because exact enumeration is infeasible
-\citep{giordano2026}. The swap construction differs on all three choices: the
-perturbed unit is the gold-label set rather than the data, the perturbation is
-a design-random draw rather than an adversarial deletion, and no approximation
-is needed because the linear contrast makes every swap effect exactly additive
-in the cluster contributions. The adversarial variant is nevertheless free
-here: the most adverse $k$-cluster validation draw is the sum of the $k$ most
-extreme contributions, read off by sorting the $\psi_g$.
-
-For the linear contrast,
-\[
-\widehat\tau_R(S_k)-\E_{S_k}[\widehat\tau_R(S_k)]
-=\sum_{g=1}^{G}\left(Z_g-\frac{k}{G}\right)\psi_g,
-\]
-where $Z_g=\1\{g\in S_k\}$. This centered expression has the form of a
-finite-population multiplier process. The resemblance does not turn swap
-quantiles into confidence intervals. Valid uncertainty for the experimental
-effect must account for treatment assignment, and valid uncertainty for the
-correction must account for the actual validation design.
-
-\section{Same accuracy and endpoints, different swap distributions}
+\section{A worked example: same accuracy, different prices}
 
 The numerical example has \NumClusters\ equal-size clusters with
 \ClusterSize\ observations each. Half the clusters are treated. The fully
@@ -443,9 +483,7 @@ outcomes. Quantities are deterministic for the generated finite population.
 
 The first two patterns share the entire mean swap path, so no average over
 validation draws can separate them. Every difference between them is
-distributional. Table~\ref{tab:budgets} prices that difference.
-
-\section{What a validation budget can deliver}
+distributional.
 
 Table~\ref{tab:budgets} prices each validation budget two ways. Tail risk is
 the exact share of validation sets whose scaled estimate lands more than
@@ -493,6 +531,43 @@ Normal approximation with the exact finite-population variance of
 equation~\eqref{eq:htvar}. Gold ATE equals \GoldATE\ in every scenario.
 \end{minipage}
 \end{table}
+
+\section{Related subset diagnostics}
+
+A thought experiment locates the swap distribution among its neighbors.
+Suppose every observation had a gold label. The measurement layer would
+vanish, and the only randomness left would be treatment assignment: over
+re-randomization, each cluster's contribution to the estimate enters with a
+random sign as the cluster changes arm. The wild cluster bootstrap
+approximates exactly this sign-flip process, applying independent mean-zero
+multipliers to cluster score contributions \citep{cameron2008}, and the first
+break in Section~\ref{sec:breaks} is that layer's variance statement for the
+scoring errors. Now remove the labels for all but $k$ clusters. A second
+layer of randomness sits on the same cluster contributions: for the linear
+contrast,
+\[
+\widehat\tau_R(S_k)-\E_{S_k}[\widehat\tau_R(S_k)]
+=\sum_{g=1}^{G}\left(Z_g-\frac{k}{G}\right)\psi_g,
+\]
+where $Z_g=\1\{g\in S_k\}$ marks the labeled clusters. The two procedures are
+one construction --- recompute the estimate under random reweighting of
+cluster contributions --- instantiated with different multiplier laws for
+different design layers: signs for assignment, inclusion indicators for
+labeling. That is why neither substitutes for the other. Swap quantiles are
+not confidence intervals, because valid uncertainty for the experimental
+effect must average over the sign layer, and valid uncertainty for the
+correction must average over the indicator layer actually used to buy labels.
+
+Dropping-data robustness metrics are the third member of the family: they
+apply adversarially chosen zero weights to individual observations and locate
+the worst set with a first-order influence approximation, exact enumeration
+being infeasible \citep{giordano2026}. The swap construction differs on every
+choice --- the perturbed unit is the gold-label set rather than the data, the
+weights are drawn by a design rather than chosen by an adversary, and no
+approximation is needed because the linear contrast makes every swap effect
+exactly additive in the cluster contributions. The adversarial variant is
+nevertheless free here: the most adverse $k$-cluster validation draw is the
+sum of the $k$ most extreme contributions, read off by sorting the $\psi_g$.
 
 \section{Use and limits}
 
