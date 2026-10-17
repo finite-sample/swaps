@@ -5,11 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "validation-swaps"
 version = "0.2.0"
-description = "Exact validation-swap distributions for machine-scored experiments"
+description = "Finite covariate-correction paths for downstream regression diagnostics"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=2.2",
+    "matplotlib>=3.10",
 ]
 
 [project.optional-dependencies]
@@ -22,7 +23,7 @@ dev = [
 ]
 
 [tool.setuptools]
-py-modules = ["replicate_final"]
+py-modules = ["replicate_final", "covariate_swaps", "replicate_covariates", "replicate_archives"]
 
 [tool.black]
 line-length = 88

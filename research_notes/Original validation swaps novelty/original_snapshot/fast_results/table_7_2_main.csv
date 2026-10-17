@@ -1,0 +1,16 @@
+scenario,method,bias,pct_bias,pass_rate,n_pass,share
+benign,Naive,-0.0815,-8.2,,,
+benign,Global correction,0.0026,0.3,,,
+benign,Validation only,0.0048,0.5,,,
+benign,SIM (val only)+corr,-0.0792,-7.9,1.000,50,0.25
+benign,SIM (projected)+corr,0.0024,0.2,1.000,50,0.99
+heterogeneous,Naive,-0.7098,-71.0,,,
+heterogeneous,Global correction,-0.0059,-0.6,,,
+heterogeneous,Validation only,-0.0002,-0.0,,,
+heterogeneous,SIM (val only)+corr,,,0.000,0,
+heterogeneous,SIM (projected)+corr,0.0521,5.0,0.040,2,0.43
+ugly,Naive,-2.0084,-100.6,,,
+ugly,Global correction,16.0475,803.7,,,
+ugly,Validation only,0.0040,0.2,,,
+ugly,SIM (val only)+corr,-0.0938,-6.5,0.040,2,0.13
+ugly,SIM (projected)+corr,,,0.000,0,

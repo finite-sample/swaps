@@ -1,115 +1,90 @@
-# Validation-Swap Distributions
+# Covariate Correction Paths
 
-This repository contains a methodological note and exact finite-population analysis for auditing machine-scored outcomes in experiments.
+**Which prediction errors change the econometric result?** This repository replaces selected proxy covariates with verified values, refits the regression, and records how the target coefficient changes. It studies the whole distribution across correction sets, not just prediction accuracy or the fully corrected endpoint.
 
-Researchers may score every experimental outcome with a machine-learning model or large language model while obtaining human labels for only a probability sample. Overall prediction accuracy does not reveal whether scoring errors distort the treatment contrast. This project studies the distribution of treatment-effect estimates induced by which experimental clusters receive gold-standard labels.
+The current benchmark concerns a treatment coefficient adjusted for a mismeasured confounder. The statistical tools are established: the random-subset mean path is a diagonal of Owen's multilinear extension, and Shapley values allocate its endpoint change. The research question is whether applying these tools to finite covariate corrections reveals sensitivity missed by simpler diagnostics. This repository does not establish a new optimal validation design or a population inference guarantee.
 
-For a linear treatment contrast, the average fixed-budget raw-swap path is mechanically determined by the proxy and gold endpoints. Its dispersion and tails reveal whether the correction is diffuse, concentrated in a few clusters, or offsetting across clusters.
+## What it computes
 
-## Statistical objects
+- Exact regression refits for every subset of a small, declared validation pool.
+- Mean and dispersion when each correction is included independently with probability `p`, and distributions at a fixed correction budget.
+- Exact Shapley attributions, separately labeled Banzhaf values, and permutation Shapley estimates with Monte Carlo standard errors.
+- Comparisons against additive single-repair changes, a finite paired-score approximation, and a derivative in feature-error amplitude.
 
-For cluster contribution $\psi_g$, proxy estimate $\widehat\tau_P$, and a simple random validation set $S_k$ of $k$ clusters, the raw-swap estimate is
+For covariates, replacing measurements changes both the regression score and its inverse Gram matrix. That can make corrections interact. For a linear outcome contrast with fixed weights, corrections are additive; the older outcome benchmark remains as this boundary case.
 
-$$
-\widehat\tau_R(S_k)
-=
-\widehat\tau_P+\sum_{g\in S_k}\psi_g.
-$$
+## Results and limits
 
-Its mean is forced to interpolate between the proxy and gold estimates:
+Three synthetic proxies have identical RMSE but different correction paths. The treatment-aligned example has substantial curvature and approximation error without near-singular regression designs. The one-active-batch control is exactly additive: its mean path is straight, although its correction-set dispersion is large. The stronger paired-score formula does **not** uniformly outperform the feature derivative. All results and the repeated 240-design benchmark are generated from code.
 
-$$
-E\lbrace\widehat\tau_R(S_k)\rbrace
-=
-\widehat\tau_P+
-\frac{k}{G}(\widehat\tau_G-\widehat\tau_P).
-$$
+Two paired replication archives add empirical illustrations: housing with predicted adjustment covariates, and Reddit with predicted incivility as the regressor of interest. Exact isolated corrections and paired scores track small random correction sets closely. Their discrepancies grow as corrections accumulate. Both applications concern descriptive associations; neither establishes a better verification policy or a causal estimation gain. The archive pilot uses individual rows as correction units.
 
-The design-scaled estimate
+These are conditional diagnostics of a known validation pool. Unknown gold values cannot be recovered from the path, and correction-set quantiles are not confidence intervals. A partial pool's endpoint corrects that pool only. Batch-level attributions depend on the grouping and generally are not sums of row-level Shapley values. The simulations prescribe proxy errors; they do not train an ML model or evaluate a prospective acquisition policy.
 
-$$
-\widehat\tau_H(S_k)
-=
-\widehat\tau_P+
-\frac{G}{k}\sum_{g\in S_k}\psi_g
-$$
+## Reproduce
 
-is a standard Horvitz-Thompson difference correction and a simple prediction-powered estimator. What is new is the object: the exact distribution of this estimator over labeling designs, used to price a validation budget before it is spent.
-
-Three propositions and a remark sharpen the diagnostic. A sharp Cauchy-Schwarz bound, $|\widehat\tau_G-\widehat\tau_P|\le r\sqrt{N(1/N_1+1/N_0)}$, shows accuracy metrics constrain the endpoint gap only at the order of the RMSE $r$: the bound is 0.40 in the generated design against a gold effect of 0.10. The $k=1$ swap distribution identifies the multiset of cluster contributions, which determines every fixed-budget distribution, while the mean path depends only on their sum. The sample variance of the observed contributions is design-unbiased for $S_\psi^2$, so one validation draw prices the variance of every counterfactual budget. And by the Hajek negligibility condition, the swap distribution is approximately normal only when no small set of clusters dominates the centered squared contributions, so moment-based budget planning fails exactly in the concentrated case the diagnostic exists to detect.
-
-## Numerical design
-
-The generated example contains 20 equal-size experimental clusters and exactly enumerates every fixed-size validation set. Three machine-scoring error patterns share the same gold outcomes, predictive RMSE, and predictive $R^2$:
-
-- Diffuse errors allocate the gold-minus-proxy treatment-effect gap equally across clusters.
-- Concentrated errors allocate the same gap to two clusters.
-- Offsetting errors have large positive and negative cluster contributions but a zero endpoint gap.
-
-The first two cases have the same proxy effect, gold effect, predictive accuracy, and mean swap path. Their random-swap distributions differ sharply.
-
-## Repository layout
-
-```text
-replicate_final.py        Exact enumeration, tables, and LaTeX macros
-validation_swaps.tex      Paper source
-references.bib            Bibliography, validated against Crossref and arXiv
-validation_swaps.pdf      Compiled paper
-generated/                Reproducible CSVs and LaTeX fragments
-tests/                    Econometric identities and reproducibility checks
-pyproject.toml            Runtime and development dependencies
-Makefile                  Analysis, checks, paper build, and Docker CI
-```
-
-## Reproduce the analysis
-
-Python 3.11 or newer is required.
+Python 3.11 or newer, R with Matrix, SparseM and e1071, `curl`, and a LaTeX installation with BibTeX are needed for the complete paper build. The Python checks and synthetic benchmarks do not require R. Install missing R packages with `Rscript -e 'install.packages(c("Matrix", "SparseM", "e1071"), repos="https://cloud.r-project.org")'`.
 
 ```bash
 uv sync --extra dev
-uv run make analysis
-```
-
-The analysis writes:
-
-- `table_scenarios.csv` and `table_scenarios.tex`
-- `table_budgets.csv` and `table_budgets.tex`
-- `macros.tex`
-- `metadata.json`
-
-The manuscript inputs all tables and repeated numerical results from these generated files.
-
-For a smaller functional run:
-
-```bash
-uv run make analysis-fast
-```
-
-Command-line overrides are available for the cluster count, cluster size, seed, and output directory:
-
-```bash
-uv run python replicate_final.py \
-  --clusters 20 \
-  --cluster-size 50 \
-  --seed 2024 \
-  --outdir generated
-```
-
-Exact enumeration accepts at most 22 clusters. Larger designs require a sampling approximation, which this release does not implement.
-
-## Validate the repository
-
-```bash
 uv run make check
+uv run make analysis
 uv run make paper
 ```
 
-`make check` runs Black, isort, Flake8, Ruff, and pytest. `make paper` regenerates the exact analysis and compiles the manuscript, including the bibliography. The local container target uses the standard Python 3.13 image:
+`make check` runs Black, isort, Flake8, Ruff, and pytest. `make analysis-fast` runs smaller functional benchmarks in `/tmp`; `make ci-docker` runs checks and those benchmarks with the standard Python 3.13 image. The paper build regenerates the synthetic and archive analyses and compiles the bibliography.
+
+Run the covariate benchmark alone:
 
 ```bash
-make ci-docker
+uv run python replicate_covariates.py
+uv run python replicate_covariates.py --fast --outdir /tmp/covariate-swaps-fast
 ```
 
-## Scope
+Run the archive pilot alone:
 
-The exact swap distribution is available when gold-minus-proxy discrepancies are observed for the finite validation pool, as in a benchmark dataset or a pilot used to study smaller future budgets. With one small validation sample, unseen cluster contributions cannot be recovered nonparametrically. Population inference requires known validation inclusion probabilities or a stated transport model. Swap quantiles are not confidence intervals for the experimental treatment effect.
+```bash
+uv run make archives
+```
+
+This downloads checksum-pinned public inputs, reproduces the archived Reddit classifier on its separate training split, and evaluates 200 random correction paths in each dataset. Downloads and derived row-level data are cached under ignored `data/archives/`; aggregate results and sampled-set diagnostics go to `generated/archives/`. Source URLs, versions, and SHA-256 hashes are in `research_notes/archives/sources.json`. The Reddit preparation deliberately uses the original CSV: Dataverse's converted training table drops a row and does not align with the archived document-term matrix. Conditioning, Monte Carlo error, and all observed approximation errors are retained. Correction-set quantiles are not population confidence intervals, and the reference-fit HC0 scale is only a descriptive normalization.
+
+## Use the diagnostic
+
+```python
+from covariate_swaps import CorrectionGame, enumerate_game
+
+# Designs include the intercept and every regressor. The arrays have the same
+# shape; only rows in the declared players need verified measurements.
+game = CorrectionGame(
+    proxy=proxy_design,
+    verified=verified_design,
+    outcome=y,
+    players=((0,), (1,), (2,)),
+    target=1,
+)
+exact = enumerate_game(game)
+mean, sd = exact.bernoulli([0.0, 0.5, 1.0])
+shapley = exact.shapley()
+fixed_budget_values = exact.fixed_size()[2]
+```
+
+Exact enumeration is limited to 16 players because computation grows exponentially. A player can be a row or a disjoint batch. `permutation_shapley(game, permutations=1000, seed=0)` approximates attributions for larger games; it does not approximate the complete correction-set distribution. A rank-deficient correction design raises an error rather than silently changing the estimand.
+
+## Files
+
+| File | Purpose |
+| --- | --- |
+| `covariate_swaps.py` | Correction games, refits, paths, attribution and influence baselines |
+| `replicate_covariates.py` | Matched-RMSE and repeated simulation benchmark |
+| `replicate_archives.py`, `prepare_archives.R` | Pinned archive retrieval, original classifier, and row-level correction diagnostics |
+| `replicate_final.py` | Retained linear-outcome boundary case |
+| `ANALYSIS_PLAN.md` | Specifications recorded before the new benchmark |
+| `validation_swaps.tex`, `validation_swaps.pdf` | Manuscript and compiled paper |
+| `generated/covariates/` | Coalition values, summaries, figures and manuscript inputs |
+| `generated/archives/` | Paired-archive diagnostics, figures, table, and provenance |
+| `generated/` | Retained outcome benchmark |
+| `reports/`, `research_notes/` | Literature review and historical implementation audit |
+| `tests/` | Mathematical identities, numerical refits and build checks |
+
+The original March 2026 implementation is preserved under `research_notes/Original validation swaps novelty/original_snapshot/`. Its attribution and audit issues are documented in the accompanying report; the current implementation is separately tested.

@@ -1,0 +1,51 @@
+{
+  "retrieved": "2026-10-17",
+  "housing_repository": "https://github.com/DanKluger/Predict-Then-Debias_Bootstrap",
+  "housing_commit": "f4adf2d3682619ae0a067d6eaf1077c85134db67",
+  "reddit_archive": "https://doi.org/10.7910/DVN/QQHBHY",
+  "reddit_version": "1.2",
+  "files": [
+    {
+      "name": "HousingPriceFormatted.RData",
+      "url": "https://raw.githubusercontent.com/DanKluger/Predict-Then-Debias_Bootstrap/f4adf2d3682619ae0a067d6eaf1077c85134db67/UpdatedExperimentsJune2026/Datasets/HousingPriceFormatted.RData",
+      "bytes": 2695584,
+      "sha256": "0ea0ff57de8d5d9acd7d66e731bad1d4d4d141b49b4f79d40ad6ac139dd95ce6"
+    },
+    {
+      "name": "unciviltraining.csv",
+      "url": "https://dataverse.harvard.edu/api/access/datafile/3984014?format=original",
+      "bytes": 729485,
+      "sha256": "59283d44a8da5a77306f1d05485be6c8df16d391154a454e57ba71563f553259"
+    },
+    {
+      "name": "uncivilvalidation.csv",
+      "url": "https://dataverse.harvard.edu/api/access/datafile/3983969?format=original",
+      "bytes": 180507,
+      "sha256": "4a2942b05ff96f1039e52a2ac66c65705a11a278698857ea24090451f82f1cbd"
+    },
+    {
+      "name": "unciviltrainingdt.dat",
+      "url": "https://dataverse.harvard.edu/api/access/datafile/3984023",
+      "bytes": 666027,
+      "sha256": "b7914c6b6bca09eb370e205607507384e99476ff87d70698fa7b84dad07ef102"
+    },
+    {
+      "name": "uncivilvalidationdt.dat",
+      "url": "https://dataverse.harvard.edu/api/access/datafile/3983972",
+      "bytes": 152265,
+      "sha256": "7a5c72ca9660cdf159d21742c491e7b1e92ab35b4a532ecf31871599460d3a87"
+    },
+    {
+      "name": "reddit_classifier.R",
+      "url": "https://dataverse.harvard.edu/api/access/datafile/3984016",
+      "bytes": 2620,
+      "sha256": "9221c212c3ad367fed16c2dcaa7b90522b26441deca75a8970d57dbaefc15a86"
+    },
+    {
+      "name": "reddit_application.R",
+      "url": "https://dataverse.harvard.edu/api/access/datafile/3984005",
+      "bytes": 11277,
+      "sha256": "41f66a8aede82e6660da461f4971502966a9f0c45e2abbc2e5c63bbf7837a486"
+    }
+  ]
+}

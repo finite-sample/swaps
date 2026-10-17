@@ -1,0 +1,64 @@
+{
+  "housing": {
+    "rows": 46418,
+    "changed_rows": 46418,
+    "proxy_coefficient": 0.37184073806533796,
+    "reference_coefficient": 0.3723784429826656,
+    "endpoint_shift": 0.0005377049173276305,
+    "reference_hc0_scale": 0.002639932371062289,
+    "proxy_design_condition": 1.7882489174100167,
+    "reference_design_condition": 1.9124480992451414,
+    "singleton_checks": {
+      "checked": 140,
+      "max_absolute_discrepancy": 1.3985476003308122e-15
+    },
+    "approximations": {
+      "singleton": {
+        "coefficient": 0.37433393296276785,
+        "signed_error": 0.001955489980102254,
+        "absolute_error_over_endpoint_shift": 3.63673441898384
+      },
+      "paired_score": {
+        "coefficient": 0.37433502011901887,
+        "signed_error": 0.001956577136353277,
+        "absolute_error_over_endpoint_shift": 3.638756264453333
+      },
+      "feature_derivative": {
+        "coefficient": 0.38015222891244105,
+        "signed_error": 0.007773785929775456,
+        "absolute_error_over_endpoint_shift": 14.45734580299326
+      }
+    }
+  },
+  "reddit": {
+    "rows": 613,
+    "changed_rows": 156,
+    "proxy_coefficient": -0.5341376959781878,
+    "reference_coefficient": -0.7657273918741797,
+    "endpoint_shift": -0.23158969589599188,
+    "reference_hc0_scale": 0.44910059972499455,
+    "proxy_design_condition": 2.458490711119624,
+    "reference_design_condition": 2.7116291070162997,
+    "singleton_checks": {
+      "checked": 127,
+      "max_absolute_discrepancy": 1.9290125052862095e-15
+    },
+    "approximations": {
+      "singleton": {
+        "coefficient": -0.689634471905071,
+        "signed_error": 0.07609291996910872,
+        "absolute_error_over_endpoint_shift": 0.32856781332483137
+      },
+      "paired_score": {
+        "coefficient": -0.6863540015306074,
+        "signed_error": 0.07937339034357227,
+        "absolute_error_over_endpoint_shift": 0.34273282339478206
+      },
+      "feature_derivative": {
+        "coefficient": -1.3827210034529271,
+        "signed_error": -0.6169936115787474,
+        "absolute_error_over_endpoint_shift": 2.664166940552668
+      }
+    }
+  }
+}

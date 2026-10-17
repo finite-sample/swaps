@@ -1,0 +1,629 @@
+{
+  "checked": "2026-10-17",
+  "scope": "Every entry in references.bib, the only .bib file in the repository.",
+  "method": "Field-by-field comparison with DOI registry, official conference/arXiv metadata, publisher or institutional archive records. This validates bibliographic identity and fields, not all scientific claims in each paper.",
+  "bibliography_sha256": "305afce225c79408da35deb97706187e8973aa1852cd21ded9b41736448284fc",
+  "total_entries": 36,
+  "cited_entries": 32,
+  "unresolved_entries": [],
+  "entries": [
+    {
+      "key": "amorim2021",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1111/rssa.12689",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "d22cd48b5a1ef07e8853efcd67bb94d2e5b3e050a8a2193d9f3f03621031a8ef",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "angelopoulos2023",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1126/science.adi6000",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "fd2850466644533ec74a8f6c89278f98bd32e482604ea1b3d5bf7cb2f9f3bc56",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "angelopoulos2023ppi",
+      "status": "validated",
+      "source": "https://arxiv.org/abs/2311.01453",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "year",
+        "note",
+        "url"
+      ],
+      "entry_sha256": "916fb16a0b8daa51e124fec7ea6f6e72580703d7d9df1d30aa266f3fb9761386",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "cameron2008",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1162/rest.90.3.414",
+      "cited_in_manuscript": false,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "c703ecd03c570ebbfdd39385c9daded27a8c2077064b78756d37874600d7a766",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "chen2026",
+      "status": "validated",
+      "source": "https://arxiv.org/abs/2603.16041",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "year",
+        "note",
+        "url"
+      ],
+      "entry_sha256": "14a97197e6046b604fe7bbc4deda200ccf1c2ea32208779dcfc8761c5a1469d5",
+      "note": "Corrected third author from Shengyi Li to Shengy Li, as recorded by arXiv."
+    },
+    {
+      "key": "cochran1977",
+      "status": "validated",
+      "source": "https://www.wiley-vch.de/en/areas-interest/mathematics-statistics/sampling-techniques-978-0-471-16240-7",
+      "cited_in_manuscript": false,
+      "fields_checked": [
+        "author",
+        "title",
+        "edition",
+        "publisher",
+        "address",
+        "year",
+        "isbn",
+        "url"
+      ],
+      "entry_sha256": "0fd71799bffff2b12b99e0b97efb9137681d895262a8f18a653bc288470d3971",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "egami2022",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1126/sciadv.abg2652",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "c28250dc856899f17d87c5063d2b74a1ef79adc8c72bdaa5f54c283b404162e7",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "egami2023",
+      "status": "validated",
+      "source": "https://proceedings.neurips.cc/paper_files/paper/2023/hash/d862f7f5445255090de13b825b880d59-Abstract-Conference.html",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "booktitle",
+        "volume",
+        "year",
+        "pages",
+        "url"
+      ],
+      "entry_sha256": "b421bfb3492df94cd8c286d8102c1b3212b1b57ef2d2f7887dfae4d08cde4a16",
+      "note": "Added official proceedings page range and persistent URL; conference metadata shortens Brandon M. Stewart to Brandon Stewart."
+    },
+    {
+      "key": "erdos1959",
+      "status": "validated",
+      "source": "https://real.mtak.hu/200900/",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "pages",
+        "number",
+        "url"
+      ],
+      "entry_sha256": "6737ea70c38adee7cc85b2c8d4309d22e6ef25b8b09111b1f7505f860f0479e5",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "fong2021",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1017/pan.2020.38",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "b033ac568ef0ed299e571fa28dfd1be3f2d16c2bba70c1f3ed1423d920b69404",
+      "note": "Year follows the 2021 journal issue, not the 2020 online-first date."
+    },
+    {
+      "key": "gilardi2023",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1073/pnas.2305016120",
+      "cited_in_manuscript": false,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "ae7b7aba54e8d980f9f7b19f22379da704ccec9a20ed86399ad2d90356eaa232",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "giordano2026",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1098/rsta.2024.0614",
+      "cited_in_manuscript": false,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "00e8e84b67355502a9d33b6b1bc2bdafbde806cde532177275cfcf423d125ca8",
+      "note": "Restored the missing Part II: Theory and Intuition subtitle; DOI identifies Part II specifically."
+    },
+    {
+      "key": "hajek1960",
+      "status": "validated",
+      "source": "https://real.mtak.hu/200979/",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "pages",
+        "number",
+        "url"
+      ],
+      "entry_sha256": "8788798f82dda4f04ce27f84a99efb5c42469c5045a7f1b93a03817d012378bd",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "horvitz1952",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1080/01621459.1952.10483446",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "d1a0683e3a8b78f53f7ea6d695c6c6f5c74d9f91e9408c15abe7e28897beb28c",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "liding2017",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1080/01621459.2017.1295865",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "a6698ccd14ffde2a01e7a0c404cc9228cb07ddbb5b6ed0be0b849849a876af32",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "neyman1938",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1080/01621459.1938.10503378",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "c5c58ea782b37cd3f94cbfae960b1b4dbccbf79d78ebeeaa45dede2e942bf701",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "sarndal1992",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1007/978-1-4612-4378-6",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "publisher",
+        "address",
+        "year",
+        "doi"
+      ],
+      "entry_sha256": "958d4537afb28583a236845a4b66c64140752d91b4891346636bf5e98acd948f",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "wang2020",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1073/pnas.2001238117",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "337636a9e7008480db132b4dbf9db79bd623381d2214fe1aee7d8b8abc438346",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "zrnic2024",
+      "status": "validated",
+      "source": "https://proceedings.mlr.press/v235/zrnic24a.html",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "booktitle",
+        "series",
+        "volume",
+        "pages",
+        "publisher",
+        "year",
+        "url"
+      ],
+      "entry_sha256": "f4608f23dcd339efb3e8489525e2dcbe5f2338c85ac41db07facdb7faf97fedc",
+      "note": "Replaced preprint-only entry with the ICML 2024 publication and page range."
+    },
+    {
+      "key": "owen1972",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1287/mnsc.18.5.64",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "17c29284a5764eeba59ac5727874719e56a0f6bd54981e8a4833b2f09e7751a5",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "sundararajan2020",
+      "status": "validated",
+      "source": "https://proceedings.mlr.press/v119/sundararajan20b.html",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "booktitle",
+        "series",
+        "volume",
+        "pages",
+        "year",
+        "url"
+      ],
+      "entry_sha256": "af4717599210d870d694e14125a9f35f32583d8d498402efb9655fcccdd369d3",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "okhrati2021",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1109/ICPR48806.2021.9412511",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "booktitle",
+        "year",
+        "pages",
+        "publisher",
+        "doi"
+      ],
+      "entry_sha256": "3af0a4716bba6b156af0491c5c98d23db490cfb16b693f7676b6269240d1311f",
+      "note": "Replaced 2020 preprint entry with published 2021 IEEE proceedings record; conference name retains 2020."
+    },
+    {
+      "key": "kluger2026",
+      "status": "validated",
+      "source": "https://arxiv.org/abs/2602.16933",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "year",
+        "note",
+        "url"
+      ],
+      "entry_sha256": "a0b49d0b4f019dba9b07895837cba05494c4fcc39ebe1a63ecd4f18a76af2bd8",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "lee1996",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1002/bimj.4710380709",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "5f08e333a0a992152a3fdc7039b6221e6d1a08d9f7fa782a855eecae5da70f0f",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "cook1994",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1080/01621459.1994.10476871",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "cc081735aecfade7b17f9f1fac31e9494fa65949785a0241f1b755af112127f7",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "chenlumley2022",
+      "status": "validated",
+      "source": "https://api.crossref.org/works/10.1002/sim.9300",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "journal",
+        "year",
+        "volume",
+        "number",
+        "pages",
+        "doi"
+      ],
+      "entry_sha256": "383723879d95fc1a630017ed656e82ab439dcee58102af89be7985cf92030c39",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "wang2023design",
+      "status": "validated",
+      "source": "https://arxiv.org/abs/2312.10596",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "year",
+        "note",
+        "url"
+      ],
+      "entry_sha256": "d036e90f666bcd79639618c53e452d9233674a6324154d089df57cce6844b897",
+      "note": "Cites the 2023 arXiv preprint; acceptance verified at Statistica Sinica. No future volume or issue year assigned."
+    },
+    {
+      "key": "kluger2025",
+      "status": "validated",
+      "source": "https://arxiv.org/abs/2501.18577",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "year",
+        "note",
+        "url"
+      ],
+      "entry_sha256": "ac11795f8871f8b4ee1d8b3cbb6d843f8970bfa86e60f23bea9992ca7f0574a6",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "battaglia2024",
+      "status": "validated",
+      "source": "https://arxiv.org/abs/2402.15585",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "year",
+        "note",
+        "url"
+      ],
+      "entry_sha256": "8ec4921669730955e9e57b4a527c2b01ab08cb7e63c5647878a258374f085274",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "koh2017",
+      "status": "validated",
+      "source": "https://proceedings.mlr.press/v70/koh17a.html",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "booktitle",
+        "series",
+        "volume",
+        "pages",
+        "publisher",
+        "year",
+        "url"
+      ],
+      "entry_sha256": "8e4cb637d4213be5b1df34983991256f3a3834c41ef33e7e32ceecd896c47f62",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "giordano2019",
+      "status": "validated",
+      "source": "https://proceedings.mlr.press/v89/giordano19a.html",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "booktitle",
+        "series",
+        "volume",
+        "pages",
+        "publisher",
+        "year",
+        "url"
+      ],
+      "entry_sha256": "73605daa189c0f40e5f7bbe9a9042ce81237a636ed78c7fdb64df600364e154d",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "giordano2019higher",
+      "status": "validated",
+      "source": "https://arxiv.org/abs/1907.12116",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "year",
+        "note",
+        "url"
+      ],
+      "entry_sha256": "e43537d06d1d0ee84f5f41ba45ef4208e8e87f6103250406ef9c1d0a559672d7",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "ghorbani2019",
+      "status": "validated",
+      "source": "https://proceedings.mlr.press/v97/ghorbani19c.html",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "booktitle",
+        "series",
+        "volume",
+        "pages",
+        "publisher",
+        "year",
+        "url"
+      ],
+      "entry_sha256": "a81da41db21f66ad7525401f3c72aa3e0518153330695805d7be097abb54f896",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "karlas2024",
+      "status": "validated",
+      "source": "https://proceedings.iclr.cc/paper_files/paper/2024/hash/ccdd1961dcd0245d9dadceccead0fad1-Abstract-Conference.html",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "booktitle",
+        "year",
+        "url"
+      ],
+      "entry_sha256": "367cc38a0cf53c57d550e496082dc3c26b9fa27868e67730134f0f2dab9da7ca",
+      "note": "Uses the six-author 2024 conference version, not the seven-author 2022 preprint."
+    },
+    {
+      "key": "xu2026",
+      "status": "validated",
+      "source": "https://arxiv.org/abs/2602.10464",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "year",
+        "note",
+        "url"
+      ],
+      "entry_sha256": "4b61d8394b6f93e71b8d4e1f48191add3563015eb286b2c41909894b690deaeb",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    },
+    {
+      "key": "ma2026",
+      "status": "validated",
+      "source": "https://arxiv.org/abs/2606.03211",
+      "cited_in_manuscript": true,
+      "fields_checked": [
+        "author",
+        "title",
+        "year",
+        "note",
+        "url"
+      ],
+      "entry_sha256": "e07b343c03dccde49f5de47d1e83a8b1ee14d82a0acd4eaa76994c65dbae0b8e",
+      "note": "Bibliographic details agree with the source, allowing capitalization, accents, name variants and venue abbreviations."
+    }
+  ]
+}

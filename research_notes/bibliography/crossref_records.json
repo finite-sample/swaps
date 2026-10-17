@@ -1,0 +1,1023 @@
+{
+  "checked": "2026-10-17",
+  "entries": {
+    "amorim2021": {
+      "source": "https://api.crossref.org/works/10.1111/rssa.12689",
+      "record": {
+        "DOI": "10.1111/rssa.12689",
+        "title": [
+          "Two-Phase Sampling Designs for Data Validation in Settings with Covariate Measurement Error and Continuous Outcome"
+        ],
+        "author": [
+          {
+            "given": "Gustavo",
+            "family": "Amorim"
+          },
+          {
+            "given": "Ran",
+            "family": "Tao"
+          },
+          {
+            "given": "Sarah",
+            "family": "Lotspeich"
+          },
+          {
+            "given": "Pamela A.",
+            "family": "Shaw"
+          },
+          {
+            "given": "Thomas",
+            "family": "Lumley"
+          },
+          {
+            "given": "Bryan E.",
+            "family": "Shepherd"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              2021,
+              4,
+              15
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              2021,
+              10,
+              1
+            ]
+          ]
+        },
+        "published-online": {
+          "date-parts": [
+            [
+              2021,
+              4,
+              15
+            ]
+          ]
+        },
+        "container-title": [
+          "Journal of the Royal Statistical Society Series A: Statistics in Society"
+        ],
+        "volume": "184",
+        "issue": "4",
+        "page": "1368-1389",
+        "article-number": null,
+        "publisher": "Oxford University Press (OUP)",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1111/rssa.12689",
+        "link": [
+          {
+            "URL": "https://onlinelibrary.wiley.com/doi/pdf/10.1111/rssa.12689",
+            "content-type": "application/pdf",
+            "content-version": "vor",
+            "intended-application": "text-mining"
+          },
+          {
+            "URL": "https://onlinelibrary.wiley.com/doi/full-xml/10.1111/rssa.12689",
+            "content-type": "application/xml",
+            "content-version": "vor",
+            "intended-application": "text-mining"
+          },
+          {
+            "URL": "https://academic.oup.com/jrsssa/article-pdf/184/4/1368/49419496/jrsssa_184_4_1368.pdf",
+            "content-type": "application/pdf",
+            "content-version": "vor",
+            "intended-application": "syndication"
+          },
+          {
+            "URL": "https://academic.oup.com/jrsssa/article-pdf/184/4/1368/49419496/jrsssa_184_4_1368.pdf",
+            "content-type": "unspecified",
+            "content-version": "vor",
+            "intended-application": "similarity-checking"
+          }
+        ]
+      }
+    },
+    "angelopoulos2023": {
+      "source": "https://api.crossref.org/works/10.1126/science.adi6000",
+      "record": {
+        "DOI": "10.1126/science.adi6000",
+        "title": [
+          "Prediction-powered inference"
+        ],
+        "author": [
+          {
+            "given": "Anastasios N.",
+            "family": "Angelopoulos"
+          },
+          {
+            "given": "Stephen",
+            "family": "Bates"
+          },
+          {
+            "given": "Clara",
+            "family": "Fannjiang"
+          },
+          {
+            "given": "Michael I.",
+            "family": "Jordan"
+          },
+          {
+            "given": "Tijana",
+            "family": "Zrnic"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              2023,
+              11,
+              10
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              2023,
+              11,
+              10
+            ]
+          ]
+        },
+        "published-online": null,
+        "container-title": [
+          "Science"
+        ],
+        "volume": "382",
+        "issue": "6671",
+        "page": "669-674",
+        "article-number": null,
+        "publisher": "American Association for the Advancement of Science (AAAS)",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1126/science.adi6000",
+        "link": [
+          {
+            "URL": "https://www.science.org/doi/pdf/10.1126/science.adi6000",
+            "content-type": "unspecified",
+            "content-version": "vor",
+            "intended-application": "similarity-checking"
+          }
+        ]
+      }
+    },
+    "cameron2008": {
+      "source": "https://api.crossref.org/works/10.1162/rest.90.3.414",
+      "record": {
+        "DOI": "10.1162/rest.90.3.414",
+        "title": [
+          "Bootstrap-Based Improvements for Inference with Clustered Errors"
+        ],
+        "author": [
+          {
+            "given": "A. Colin",
+            "family": "Cameron"
+          },
+          {
+            "given": "Jonah B.",
+            "family": "Gelbach"
+          },
+          {
+            "given": "Douglas L.",
+            "family": "Miller"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              2008,
+              8
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              2008,
+              8
+            ]
+          ]
+        },
+        "published-online": null,
+        "container-title": [
+          "Review of Economics and Statistics"
+        ],
+        "volume": "90",
+        "issue": "3",
+        "page": "414-427",
+        "article-number": null,
+        "publisher": "MIT Press",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1162/rest.90.3.414"
+      }
+    },
+    "egami2022": {
+      "source": "https://api.crossref.org/works/10.1126/sciadv.abg2652",
+      "record": {
+        "DOI": "10.1126/sciadv.abg2652",
+        "title": [
+          "How to make causal inferences using texts"
+        ],
+        "author": [
+          {
+            "given": "Naoki",
+            "family": "Egami"
+          },
+          {
+            "given": "Christian J.",
+            "family": "Fong"
+          },
+          {
+            "given": "Justin",
+            "family": "Grimmer"
+          },
+          {
+            "given": "Margaret E.",
+            "family": "Roberts"
+          },
+          {
+            "given": "Brandon M.",
+            "family": "Stewart"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              2022,
+              10,
+              21
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              2022,
+              10,
+              21
+            ]
+          ]
+        },
+        "published-online": null,
+        "container-title": [
+          "Science Advances"
+        ],
+        "volume": "8",
+        "issue": "42",
+        "page": null,
+        "article-number": "eabg2652",
+        "publisher": "American Association for the Advancement of Science (AAAS)",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1126/sciadv.abg2652",
+        "link": [
+          {
+            "URL": "https://www.science.org/doi/pdf/10.1126/sciadv.abg2652",
+            "content-type": "unspecified",
+            "content-version": "vor",
+            "intended-application": "similarity-checking"
+          }
+        ]
+      }
+    },
+    "fong2021": {
+      "source": "https://api.crossref.org/works/10.1017/pan.2020.38",
+      "record": {
+        "DOI": "10.1017/pan.2020.38",
+        "title": [
+          "Machine Learning Predictions as Regression Covariates"
+        ],
+        "author": [
+          {
+            "given": "Christian",
+            "family": "Fong"
+          },
+          {
+            "given": "Matthew",
+            "family": "Tyler"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              2020,
+              11,
+              11
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              2021,
+              10
+            ]
+          ]
+        },
+        "published-online": {
+          "date-parts": [
+            [
+              2020,
+              11,
+              11
+            ]
+          ]
+        },
+        "container-title": [
+          "Political Analysis"
+        ],
+        "volume": "29",
+        "issue": "4",
+        "page": "467-484",
+        "article-number": null,
+        "publisher": "Cambridge University Press (CUP)",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1017/pan.2020.38",
+        "link": [
+          {
+            "URL": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/S1047198720000388",
+            "content-type": "unspecified",
+            "content-version": "vor",
+            "intended-application": "similarity-checking"
+          }
+        ]
+      }
+    },
+    "gilardi2023": {
+      "source": "https://api.crossref.org/works/10.1073/pnas.2305016120",
+      "record": {
+        "DOI": "10.1073/pnas.2305016120",
+        "title": [
+          "ChatGPT outperforms crowd workers for text-annotation tasks"
+        ],
+        "author": [
+          {
+            "given": "Fabrizio",
+            "family": "Gilardi"
+          },
+          {
+            "given": "Meysam",
+            "family": "Alizadeh"
+          },
+          {
+            "given": "Maël",
+            "family": "Kubli"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              2023,
+              7,
+              18
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              2023,
+              7,
+              25
+            ]
+          ]
+        },
+        "published-online": {
+          "date-parts": [
+            [
+              2023,
+              7,
+              18
+            ]
+          ]
+        },
+        "container-title": [
+          "Proceedings of the National Academy of Sciences"
+        ],
+        "volume": "120",
+        "issue": "30",
+        "page": null,
+        "article-number": "e2305016120",
+        "publisher": "National Academy of Sciences",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1073/pnas.2305016120"
+      }
+    },
+    "giordano2026": {
+      "source": "https://api.crossref.org/works/10.1098/rsta.2024.0614",
+      "record": {
+        "DOI": "10.1098/rsta.2024.0614",
+        "title": [
+          "An automatic finite-sample robustness metric: when can dropping a little data change conclusions? Part II: theory and intuition"
+        ],
+        "author": [
+          {
+            "given": "Ryan",
+            "family": "Giordano"
+          },
+          {
+            "given": "Rachael",
+            "family": "Meager"
+          },
+          {
+            "given": "Tamara",
+            "family": "Broderick"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              2026,
+              5,
+              27
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              2026,
+              5,
+              27
+            ]
+          ]
+        },
+        "published-online": {
+          "date-parts": [
+            [
+              2026,
+              5,
+              27
+            ]
+          ]
+        },
+        "container-title": [
+          "Philosophical Transactions of the Royal Society A: Mathematical, Physical and Engineering Sciences"
+        ],
+        "volume": "384",
+        "issue": "2321",
+        "page": null,
+        "article-number": "20240614",
+        "publisher": "The Royal Society",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1098/rsta.2024.0614",
+        "link": [
+          {
+            "URL": "https://royalsocietypublishing.org/rsta/article-pdf/doi/10.1098/rsta.2024.0614/6142069/rsta.2024.0614.pdf",
+            "content-type": "application/pdf",
+            "content-version": "vor",
+            "intended-application": "syndication"
+          },
+          {
+            "URL": "https://royalsocietypublishing.org/rsta/article-pdf/doi/10.1098/rsta.2024.0614/6142069/rsta.2024.0614.pdf",
+            "content-type": "unspecified",
+            "content-version": "vor",
+            "intended-application": "similarity-checking"
+          }
+        ]
+      }
+    },
+    "horvitz1952": {
+      "source": "https://api.crossref.org/works/10.1080/01621459.1952.10483446",
+      "record": {
+        "DOI": "10.1080/01621459.1952.10483446",
+        "title": [
+          "A Generalization of Sampling Without Replacement from a Finite Universe"
+        ],
+        "author": [
+          {
+            "given": "D. G.",
+            "family": "Horvitz"
+          },
+          {
+            "given": "D. J.",
+            "family": "Thompson"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              1952,
+              12
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              1952,
+              12
+            ]
+          ]
+        },
+        "published-online": {
+          "date-parts": [
+            [
+              2012,
+              4,
+              11
+            ]
+          ]
+        },
+        "container-title": [
+          "Journal of the American Statistical Association"
+        ],
+        "volume": "47",
+        "issue": "260",
+        "page": "663-685",
+        "article-number": null,
+        "publisher": "Informa UK Limited",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1080/01621459.1952.10483446",
+        "link": [
+          {
+            "URL": "https://www.tandfonline.com/doi/pdf/10.1080/01621459.1952.10483446",
+            "content-type": "unspecified",
+            "content-version": "vor",
+            "intended-application": "similarity-checking"
+          }
+        ]
+      }
+    },
+    "liding2017": {
+      "source": "https://api.crossref.org/works/10.1080/01621459.2017.1295865",
+      "record": {
+        "DOI": "10.1080/01621459.2017.1295865",
+        "title": [
+          "General Forms of Finite Population Central Limit Theorems with Applications to Causal Inference"
+        ],
+        "author": [
+          {
+            "given": "Xinran",
+            "family": "Li"
+          },
+          {
+            "given": "Peng",
+            "family": "Ding"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              2017,
+              10,
+              2
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              2017,
+              10,
+              2
+            ]
+          ]
+        },
+        "published-online": {
+          "date-parts": [
+            [
+              2018,
+              1,
+              26
+            ]
+          ]
+        },
+        "container-title": [
+          "Journal of the American Statistical Association"
+        ],
+        "volume": "112",
+        "issue": "520",
+        "page": "1759-1769",
+        "article-number": null,
+        "publisher": "Informa UK Limited",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1080/01621459.2017.1295865",
+        "link": [
+          {
+            "URL": "https://www.tandfonline.com/doi/pdf/10.1080/01621459.2017.1295865",
+            "content-type": "unspecified",
+            "content-version": "vor",
+            "intended-application": "similarity-checking"
+          }
+        ]
+      }
+    },
+    "neyman1938": {
+      "source": "https://api.crossref.org/works/10.1080/01621459.1938.10503378",
+      "record": {
+        "DOI": "10.1080/01621459.1938.10503378",
+        "title": [
+          "Contribution to the Theory of Sampling Human Populations"
+        ],
+        "author": [
+          {
+            "given": "J.",
+            "family": "Neyman"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              1938,
+              3
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              1938,
+              3
+            ]
+          ]
+        },
+        "published-online": null,
+        "container-title": [
+          "Journal of the American Statistical Association"
+        ],
+        "volume": "33",
+        "issue": "201",
+        "page": "101-116",
+        "article-number": null,
+        "publisher": "Informa UK Limited",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1080/01621459.1938.10503378",
+        "link": [
+          {
+            "URL": "http://www.tandfonline.com/doi/pdf/10.1080/01621459.1938.10503378",
+            "content-type": "unspecified",
+            "content-version": "vor",
+            "intended-application": "similarity-checking"
+          }
+        ]
+      }
+    },
+    "wang2020": {
+      "source": "https://api.crossref.org/works/10.1073/pnas.2001238117",
+      "record": {
+        "DOI": "10.1073/pnas.2001238117",
+        "title": [
+          "Methods for correcting inference based on outcomes predicted by machine learning"
+        ],
+        "author": [
+          {
+            "given": "Siruo",
+            "family": "Wang"
+          },
+          {
+            "given": "Tyler H.",
+            "family": "McCormick"
+          },
+          {
+            "given": "Jeffrey T.",
+            "family": "Leek"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              2020,
+              11,
+              18
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              2020,
+              12
+            ]
+          ]
+        },
+        "published-online": {
+          "date-parts": [
+            [
+              2020,
+              11,
+              18
+            ]
+          ]
+        },
+        "container-title": [
+          "Proceedings of the National Academy of Sciences"
+        ],
+        "volume": "117",
+        "issue": "48",
+        "page": "30266-30275",
+        "article-number": null,
+        "publisher": "National Academy of Sciences",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1073/pnas.2001238117"
+      }
+    },
+    "owen1972": {
+      "source": "https://api.crossref.org/works/10.1287/mnsc.18.5.64",
+      "record": {
+        "DOI": "10.1287/mnsc.18.5.64",
+        "title": [
+          "Multilinear Extensions of Games"
+        ],
+        "author": [
+          {
+            "given": "Guillermo",
+            "family": "Owen"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              1972,
+              1
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              1972,
+              1
+            ]
+          ]
+        },
+        "published-online": null,
+        "container-title": [
+          "Management Science"
+        ],
+        "volume": "18",
+        "issue": "5-part-2",
+        "page": "64-79",
+        "article-number": null,
+        "publisher": "Institute for Operations Research and the Management Sciences (INFORMS)",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1287/mnsc.18.5.64"
+      }
+    },
+    "lee1996": {
+      "source": "https://api.crossref.org/works/10.1002/bimj.4710380709",
+      "record": {
+        "DOI": "10.1002/bimj.4710380709",
+        "title": [
+          "Assessing Local Influence in Measurement Error Models"
+        ],
+        "author": [
+          {
+            "given": "Andy H.",
+            "family": "Lee"
+          },
+          {
+            "given": "Yuejen",
+            "family": "Zhao"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              1996,
+              1
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              1996,
+              1
+            ]
+          ]
+        },
+        "published-online": {
+          "date-parts": [
+            [
+              2007,
+              1,
+              18
+            ]
+          ]
+        },
+        "container-title": [
+          "Biometrical Journal"
+        ],
+        "volume": "38",
+        "issue": "7",
+        "page": "829-841",
+        "article-number": null,
+        "publisher": "Wiley",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1002/bimj.4710380709"
+      }
+    },
+    "cook1994": {
+      "source": "https://api.crossref.org/works/10.1080/01621459.1994.10476871",
+      "record": {
+        "DOI": "10.1080/01621459.1994.10476871",
+        "title": [
+          "Simulation-Extrapolation Estimation in Parametric Measurement Error Models"
+        ],
+        "author": [
+          {
+            "given": "J. R.",
+            "family": "Cook"
+          },
+          {
+            "given": "L. A.",
+            "family": "Stefanski"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              1994,
+              12
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              1994,
+              12
+            ]
+          ]
+        },
+        "published-online": {
+          "date-parts": [
+            [
+              2012,
+              2,
+              27
+            ]
+          ]
+        },
+        "container-title": [
+          "Journal of the American Statistical Association"
+        ],
+        "volume": "89",
+        "issue": "428",
+        "page": "1314-1328",
+        "article-number": null,
+        "publisher": "Informa UK Limited",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1080/01621459.1994.10476871"
+      }
+    },
+    "chenlumley2022": {
+      "source": "https://api.crossref.org/works/10.1002/sim.9300",
+      "record": {
+        "DOI": "10.1002/sim.9300",
+        "title": [
+          "Optimal sampling for design‐based estimators of regression models"
+        ],
+        "author": [
+          {
+            "given": "Tong",
+            "family": "Chen"
+          },
+          {
+            "given": "Thomas",
+            "family": "Lumley"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              2022,
+              1,
+              6
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              2022,
+              4,
+              15
+            ]
+          ]
+        },
+        "published-online": {
+          "date-parts": [
+            [
+              2022,
+              1,
+              6
+            ]
+          ]
+        },
+        "container-title": [
+          "Statistics in Medicine"
+        ],
+        "volume": "41",
+        "issue": "8",
+        "page": "1482-1497",
+        "article-number": null,
+        "publisher": "Wiley",
+        "type": "journal-article",
+        "URL": "https://doi.org/10.1002/sim.9300"
+      }
+    },
+    "okhrati2021": {
+      "source": "https://api.crossref.org/works/10.1109/ICPR48806.2021.9412511",
+      "record": {
+        "DOI": "10.1109/icpr48806.2021.9412511",
+        "title": [
+          "A Multilinear Sampling Algorithm to Estimate Shapley Values"
+        ],
+        "author": [
+          {
+            "given": "Ramin",
+            "family": "Okhrati"
+          },
+          {
+            "given": "Aldo",
+            "family": "Lipani"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              2021,
+              1,
+              10
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              2021,
+              1,
+              10
+            ]
+          ]
+        },
+        "published-online": null,
+        "container-title": [
+          "2020 25th International Conference on Pattern Recognition (ICPR)"
+        ],
+        "volume": null,
+        "issue": null,
+        "page": "7992-7999",
+        "article-number": null,
+        "publisher": "IEEE",
+        "type": "proceedings-article",
+        "URL": "https://doi.org/10.1109/icpr48806.2021.9412511"
+      }
+    },
+    "sarndal1992": {
+      "source": "https://api.crossref.org/works/10.1007/978-1-4612-4378-6",
+      "record": {
+        "DOI": "10.1007/978-1-4612-4378-6",
+        "title": [
+          "Model Assisted Survey Sampling"
+        ],
+        "author": [
+          {
+            "given": "Carl-Erik",
+            "family": "Särndal"
+          },
+          {
+            "given": "Bengt",
+            "family": "Swensson"
+          },
+          {
+            "given": "Jan",
+            "family": "Wretman"
+          }
+        ],
+        "published": {
+          "date-parts": [
+            [
+              1992
+            ]
+          ]
+        },
+        "published-print": {
+          "date-parts": [
+            [
+              1992
+            ]
+          ]
+        },
+        "published-online": null,
+        "container-title": [
+          "Springer Series in Statistics"
+        ],
+        "volume": null,
+        "issue": null,
+        "page": null,
+        "article-number": null,
+        "publisher": "Springer New York",
+        "type": "book",
+        "URL": "https://doi.org/10.1007/978-1-4612-4378-6"
+      }
+    }
+  }
+}

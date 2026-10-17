@@ -1,0 +1,27 @@
+{
+  "seed": 20261017,
+  "draws": 200,
+  "budgets": [
+    0.01,
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1.0
+  ],
+  "python": "3.13.2",
+  "numpy": "2.5.2",
+  "input_sha256": {
+    "R-session.txt": "10c300c57fa94b1fd834914234b66f2146c96493a730a2d417ca2cb72d492327",
+    "housing.csv": "3ba2c272c773b3c92973515aa4734550323a58fdce8c54ff2e583bbd452de1db",
+    "preparation_audit.csv": "926710a12aa304a9906ac4e364d3dca5e16f621ae1cea06d8334bfdbec17b5ec",
+    "reddit.csv": "f985fb2a9be3cd4efa712d997e0b2a806d31363ea376fb5c2f1a8473130aff79"
+  },
+  "source_manifest_sha256": "f18a4845d2a76a11affbd4ac2fe6c72fbbe053f8d5d9a8d47868e6a0e64f2dfa",
+  "code_sha256": {
+    "replicate_archives.py": "8652ddb9857f939a5d86ee89810f3863309e89795767489af26b8f8399d25d13",
+    "prepare_archives.R": "985861587ebbf1320f18df5d0cf7d2f4426a5ee0233ed1423bd2111c828136c9",
+    "covariate_swaps.py": "3bd124784e2a7244b176d4a9ad1b3e7e47c0d813be205c382210a46e8ceaa5f0"
+  }
+}

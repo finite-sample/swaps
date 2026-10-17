@@ -1,0 +1,441 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs,tabularx,array,longtable}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{setspace}
+\usepackage{caption}
+
+\hypersetup{colorlinks=true, linkcolor=blue!50!black, urlcolor=blue!50!black}
+\setstretch{1.05}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.45em}
+\captionsetup{font=small, labelfont=bf}
+
+\newtheorem{proposition}{Proposition}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Var}{\operatorname{Var}}
+\newcommand{\SE}{\operatorname{SE}}
+\newcommand{\1}{\mathbf{1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+\title{\textbf{Partial Credit}\\[0.35em]
+\large Diagnosing Proxy Covariates with Validation Swaps}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We study linear regression with a latent regressor $X$, a proxy $\hat X$ observed on the full sample, and an internal validation subset $V$ on which the truth $X$ is also observed. The goal is not to ``repair'' the proxy everywhere. Instead, we ask whether there is an observable domain on which proxy substitution causes little distortion in the coefficient of interest, so that proxy-only rows can be borrowed for precision on that domain. We formalize this idea with a validation-swap path, a Shapley-style rowwise importance decomposition, a portable risk score learned on one validation fold, and a held-out audit on the other. The framework is deliberately diagnostic and decision-oriented: the audit is a screen, not a proof; accepted domains may change the estimand; and any precision gain must be weighed against an explicit distortion budget. Simulations illustrate when the framework is useful, when it fails, and why its main value is usually diagnostic rather than inferential.
+\end{abstract}
+
+\section{Introduction}
+
+Applied work often proceeds with a proxy covariate $\hat X$ even though the scientific target is defined in terms of a latent or gold-standard covariate $X$. The familiar question is whether using $\hat X$ induces bias. The more decision-relevant question is sharper: \emph{where, if anywhere, can proxy-only observations be used without materially distorting the coefficient of interest?}
+
+We consider an internal-validation design. The main sample contains $(Y_i,\hat X_i,W_i)$ for all rows, while a validation subset $V$ additionally contains the true $X_i$. The validation sample supplies identification under the usual internal-validation assumptions. Proxy-only rows do not identify the target on their own; they can improve precision only through additional structure linking $X$ to observables.
+
+The note makes four contributions. First, it introduces a \emph{validation-swap path} that traces how the coefficient changes as validated truths replace proxies within the validation sample. Second, it decomposes the hybrid gap into \emph{rowwise swap importance measures} (SIMs), making clear which validated rows drive the discrepancy. Third, it turns those validated-row diagnostics into a portable full-sample rule by predicting swap importance from observables $Z=(\hat X,W)$ and auditing the resulting domain on held-out validation data. Fourth, it makes the decision problem explicit through a \emph{bias-robust decision interval}: the proxy-only sample is worth using only if the precision gain beats a user-chosen distortion budget.
+
+The framework is intentionally modest. It does not offer distribution-free inference, it does not rescue the whole sample when no credible domain exists, and it does not claim that a passed audit proves negligible distortion. Its virtue is narrower: it gives the analyst a structured way to diagnose proxy sensitivity, identify where that sensitivity lives, and decide whether local borrowing is worth the risk.
+
+\section{Setup and target}
+
+Let the structural mean model be
+\begin{equation}
+Y_i = \beta_0 + \beta_1 X_i + W_i^\top \beta_W + \varepsilon_i,
+\qquad \E[\varepsilon_i \mid X_i,W_i]=0.
+\label{eq:structural}
+\end{equation}
+The analyst observes a main sample $M$ containing $(Y_i,\hat X_i,W_i)$ for all $i\in M$, and an internal validation sample $V\subseteq M$ containing, in addition, the true $X_i$ for $i\in V$. Write $Z_i=(\hat X_i,W_i)$ for the observables available on every row.
+
+Two distinctions matter from the outset.
+
+\textbf{Identification versus precision.} Under random or probabilistic internal-validation sampling, correct mean-model specification, and representativeness of $V$ for the target population (or an explicit transportability condition linking $V$ to that population), the coefficient from regressing $Y$ on $(1,X,W)$ within $V$ identifies $\beta_1$. Proxy-only observations can improve precision only through additional assumptions about the relationship between $X$ and $Z$.
+
+\textbf{Population versus domain target.} Any proxy-safe restriction generally changes the estimand. If we restrict attention to an observable domain $R(Z)=1$, the target becomes
+\[
+\beta_1(R) := \text{the coefficient on } X \text{ in the population restricted to } R=1.
+\]
+When effects are homogeneous, $\beta_1(R)=\beta_1$ and the restriction is costless. When effects are heterogeneous, $\beta_1(R)$ is a local parameter and should be reported as such.
+
+A useful benchmark is the validation-only estimator
+\[
+T_V(X) := \text{the coefficient on } X \text{ in the regression of } Y \text{ on } (1,X,W) \text{ using only } V.
+\]
+Under the conditions above, $T_V(X)$ targets $\beta_1$. Any domain-based or proxy-based procedure should be compared against this benchmark, because this is the quantity the validation data identify without further modeling.
+
+\section{Validation-swap diagnostics}
+
+\subsection{Hybrid swap path}
+
+For any subset $S\subseteq V$, define the hybrid regressor
+\begin{equation}
+(X^{(S)})_i=
+\begin{cases}
+X_i, & i\in S,\\
+\hat X_i, & i\notin S.
+\end{cases}
+\label{eq:hybrid}
+\end{equation}
+Let $T(\cdot)$ denote the coefficient on the target regressor in a regression of $Y$ on the chosen regressor and $W$. The validation-swap path is
+\begin{equation}
+\phi_V(p)=\E_S\bigl[T(X^{(S)})\bigr],
+\qquad \1\{i\in S\}\stackrel{\text{iid}}{\sim}\mathrm{Bernoulli}(p), \quad i\in V.
+\label{eq:swap_path}
+\end{equation}
+Its endpoints are
+\[
+\phi_V(0)=T(\hat X), \qquad \phi_V(1)=T(X^{(V)}),
+\]
+where $X^{(V)}$ means that all validated rows are corrected and all nonvalidated rows still use $\hat X$. If $V\subsetneq M$, then $\phi_V(1)$ is \emph{not} the unattainable full-sample oracle $T(X)$.
+
+Given an observable domain rule $R(Z)\in\{0,1\}$, define the restricted path
+\begin{equation}
+\phi_{R,V}(p)=\E_S\bigl[T_R(X^{(S)})\bigr],
+\label{eq:restricted_path}
+\end{equation}
+where $T_R$ computes the same coefficient on the subset $\{i:R_i=1\}$ and swaps occur only among validated rows inside that subset. A flat restricted path is evidence that proxy substitution has little practical impact on the coefficient of interest on the chosen domain.
+
+Figure~\ref{fig:swap_paths} illustrates the swap path across the three simulation scenarios described in Section~6. A flat path (benign) means the proxy introduces negligible distortion. A steep path (heterogeneous, ugly) signals that the coefficient changes substantially as validated values replace proxies, with the shape and magnitude indicating the severity and structure of the problem.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{fig1_swap_paths.png}
+\caption{Validation-swap paths for the coefficient $\hat\beta_1$ across the three DGPs. The shaded band shows $\pm 1$ standard deviation across swap configurations at each $p$. The benign proxy produces a nearly flat path; the heterogeneous and ugly proxies produce steep paths reflecting large proxy-induced distortion.}
+\label{fig:swap_paths}
+\end{figure}
+
+\subsection{Rowwise swap importance}
+
+The total hybrid gap
+\[
+\Delta_V := T(X^{(V)}) - T(\hat X)
+\]
+can be decomposed across validated rows with a Shapley-style allocation. For $i\in V$, define
+\begin{equation}
+\mathrm{SIM}_i
+= \sum_{S\subseteq V\setminus\{i\}}
+\frac{|S|!(|V|-|S|-1)!}{|V|!}
+\Bigl[T(X^{(S\cup\{i\})})-T(X^{(S)})\Bigr].
+\label{eq:sim}
+\end{equation}
+Then $\sum_{i\in V}\mathrm{SIM}_i=\Delta_V$.
+
+SIM answers a specific question: which validated rows matter most for the difference between the proxy-only estimate and the maximally swapped hybrid estimate? Three cautions are important.
+\begin{enumerate}[leftmargin=1.6em,label=(\roman*)]
+\item SIM decomposes the hybrid gap $\Delta_V$, not the unavailable full-sample oracle gap unless $V=M$.
+\item In linear regression, first-order influence analysis suggests that $\mathrm{SIM}_i$ scales with a coefficient-specific influence weight times $(X_i-\hat X_i)$. The shorthand $|\mathrm{SIM}_i|\approx h_i|X_i-\hat X_i|$ is often a helpful empirical surrogate, but it is not the exact first-order formula; the actual expression involves partial leverage for the coefficient of interest and the local design geometry.
+\item SIM is not portable: it is observed only on validated rows. A domain rule used on the full sample must be a function of observables $Z$, not of SIM itself.
+\end{enumerate}
+
+Figure~\ref{fig:sim_anatomy} plots $|\mathrm{SIM}_i|$ against the leverage-times-proxy-error interaction for validated rows in each scenario. In the heterogeneous case, the pattern is clear: rows with large $|W_2|$ have both high proxy error and high SIM, confirming that the decomposition identifies the rows where proxy substitution is consequential. The color gradient (darker for larger $|W_2|$) shows the observable structure that a portable risk score can exploit.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{fig2_sim_anatomy.png}
+\caption{Rowwise swap importance versus leverage $\times$ proxy error magnitude, colored by $|W_2|$. The correlation $r$ is reported in each panel title. In the heterogeneous scenario, the relationship is strong and tracks $|W_2|$, indicating that a portable risk score based on observables can identify high-sensitivity rows.}
+\label{fig:sim_anatomy}
+\end{figure}
+
+\section{From validated diagnostics to portable domains}
+
+\subsection{Portable risk score}
+
+Because SIM is unavailable outside $V$, we learn a portable risk score on a discovery fold $V_D\subset V$ by modeling
+\begin{equation}
+ r(Z) \approx \E\bigl[|\mathrm{SIM}| \mid Z\bigr].
+ \label{eq:risk_score}
+\end{equation}
+Candidate domains take the form
+\[
+R_\tau(Z)=\1\{r(Z)\le \tau\}.
+\]
+Any supervised learner may be used here, but the interpretation is always the same: $r(Z)$ is a model for how proxy sensitivity varies with observables. If proxy quality varies for reasons not captured by $Z$---for example, idiosyncratic coding errors or unit-specific noise---then no projection model will reliably recover SIM outside the validation sample, and the audit gate may not detect the failure if the validation sample is small.
+
+\subsection{Discovery distortion and held-out audit}
+
+For each threshold $\tau$, define the discovery distortion on $V_D$ by
+\begin{equation}
+D_D(\tau)=\left|\hat\beta_1^{(X)}(R_\tau,V_D)-\hat\beta_1^{(\hat X)}(R_\tau,V_D)\right|,
+\label{eq:discovery_distortion}
+\end{equation}
+where both coefficients are computed on discovery-fold rows satisfying $R_\tau(Z)=1$, once using $X$ and once using $\hat X$. Choose the largest threshold satisfying
+\[
+D_D(\tau)\le \delta,
+\]
+for a user-specified distortion budget $\delta>0$.
+
+Let $V_A=V\setminus V_D$ be a held-out audit fold. With the selected threshold $\hat\tau$, define the audit distortion
+\begin{equation}
+D_A=\left|\hat\beta_1^{(X)}(R_{\hat\tau},V_A)-\hat\beta_1^{(\hat X)}(R_{\hat\tau},V_A)\right|.
+\label{eq:audit_distortion}
+\end{equation}
+The practical rule is simple:
+\begin{center}
+\fbox{\parbox{0.92\linewidth}{
+\textbf{Point audit.} Accept the domain if $D_A\le\delta$. Otherwise reject it and fall back to the validation-only estimator.
+}}
+\end{center}
+This is an audit gate, not a formal hypothesis test. It reduces the risk of discovery-fold overfitting, but it is not a guarantee that the population distortion lies below $\delta$.
+
+\subsection{Making $\delta$ interpretable}
+
+For any accepted domain $R$, decompose the total error as
+\begin{equation}
+\hat\beta_1(\hat X,R)-\beta_1(R)
+=
+\underbrace{\bigl[\hat\beta_1(\hat X,R)-\hat\beta_1(X,R)\bigr]}_{\text{proxy distortion } D}
++
+\underbrace{\bigl[\hat\beta_1(X,R)-\beta_1(R)\bigr]}_{\text{sampling error}}.
+\label{eq:error_decomposition}
+\end{equation}
+Two derived quantities are useful in practice.
+
+\textbf{Bias-to-SE ratio.}
+\[
+\frac{\delta}{\SE\bigl(\hat\beta_1(R)\bigr)}.
+\]
+Values below roughly $0.25$ indicate that the tolerated distortion is small relative to sampling uncertainty; values above $1$ mean distortion dominates the standard error.
+
+\textbf{Bias-robust decision interval.} A domain is worth using only if its precision gain beats the distortion budget. The relevant comparison is
+\begin{equation}
+1.96\,\SE_{\mathrm{domain}}+\delta
+<
+1.96\,\SE_{\mathrm{val\text{-}only}}.
+\label{eq:decision_interval}
+\end{equation}
+This is not advertised as a formal confidence interval unless $|D|\le\delta$ is itself justified as a genuine bound. With the point audit, it is better interpreted as a \emph{decision interval under an assumed distortion budget}.
+
+\subsection{CI-adjusted audit}
+
+A more conservative screen replaces the point audit with
+\begin{equation}
+|D_A| + 1.96\,\widehat{\SE}(D_A) \le \delta.
+\label{eq:ci_audit}
+\end{equation}
+We estimate $\SE(D_A)$ via paired influence functions on the audit fold. For each audit-fold row $i$, compute the influence of row $i$ on $\hat\beta_1^{(X)}$ minus its influence on $\hat\beta_1^{(\hat X)}$, giving a paired score $\psi_i$, and set $\widehat{\SE}(D_A) = \sqrt{\sum_i \psi_i^2 \cdot n/(n-p)}$. This retains the covariance between the two coefficient estimates because both share the same $Y$. A paired nonparametric bootstrap is an equivalent alternative.
+
+Under a normal approximation, \eqref{eq:ci_audit} is a conservative approximate 95\% upper bound on $|D|$. In the simulations below, this stricter audit never passes at $n_{\mathrm{val}}=500$; the distortion is simply too noisy to estimate at that validation size.
+
+\section{Local correction within an accepted domain}
+
+Suppose the audit accepts a domain $R(Z)=1$. On that domain, fit a local measurement model on the validation rows,
+\[
+\mu_R(Z):=\widehat{\E}[X\mid Z,R=1],
+\]
+and then use $\mu_R(Z)$ in place of $\hat X$ for all rows satisfying $R(Z)=1$.
+
+\begin{proposition}[Population exactness under correct local calibration]
+Assume that on the accepted domain $R(Z)=1$:
+\begin{enumerate}[leftmargin=1.6em,label=(\arabic*)]
+\item the domain rule $R=R(Z)$ is fixed and observable;
+\item the structural mean is linear,
+\[
+\E[Y\mid X,W,R=1]=\beta_0+\beta_1 X + W^\top\beta_W;
+\]
+\item the conditional mean restriction holds,
+\[
+\E[\varepsilon\mid X,W,Z,R=1]=0;
+\]
+\item the local calibration is relevant, in the sense that $\mu_R(Z)$ is not almost surely affine in $W$ within the accepted domain.
+\end{enumerate}
+Then regressing $Y$ on $(1,\mu_R(Z),W)$ within the accepted domain identifies $\beta_1(R)$ in population.
+\end{proposition}
+
+\begin{proof}
+Because $W$ is part of $Z$, assumptions (2) and (3) imply
+\[
+\E[Y\mid Z,R=1]
+=
+\beta_0 + \beta_1\E[X\mid Z,R=1] + W^\top\beta_W
+=
+\beta_0 + \beta_1\mu_R(Z) + W^\top\beta_W.
+\]
+Thus the conditional mean is linear in $(1,\mu_R(Z),W)$. Assumption (4) guarantees that the coefficient on $\mu_R(Z)$ is identified separately from the coefficients on $W$. Therefore the population regression of $Y$ on $(1,\mu_R(Z),W)$ within $R=1$ recovers $\beta_1(R)$.\qedhere
+\end{proof}
+
+The relevance condition matters. In the ugly scenario below, $\hat X \approx W_2 + \text{noise}$, so the fitted $\mu_R(Z)$ is nearly collinear with $W_2$ and the coefficient on $\mu_R(Z)$ is poorly identified, even if a validation sample exists.
+
+\section{Simulation design}
+
+We use three stylized data-generating processes (DGPs). In the benign and heterogeneous scenarios, $X\sim N(0,1)$. In all cases, $(W_2,W_3)\sim N(0,I_2)$ independently, and the coefficient of interest is $\beta_1=1$.
+
+\textbf{Benign.}
+\[
+Y = X + 0.5W_2 + 0.3W_3 + \varepsilon,
+\qquad
+\hat X = X + \nu,
+\qquad
+\nu\sim N(0,0.3^2).
+\]
+The proxy is mildly noisy but usable everywhere.
+
+\textbf{Heterogeneous.}
+\[
+Y = X + 0.5W_2 + 0.3W_3 + \varepsilon,
+\qquad
+\hat X = X + \sigma(W_2)\nu,
+\qquad
+\sigma(W_2)=0.1 + 1.5|W_2|,
+\]
+with $\nu\sim N(0,1)$. Proxy quality is good near $W_2=0$ and poor in the tails.
+
+\textbf{Ugly.} Let $U\sim N(0,1)$ be independent of $(W_2,W_3)$, and define
+\[
+X = W_2 + U,
+\qquad
+Y = X + 0.5W_2 + 0.3W_3 + U + \varepsilon,
+\qquad
+\hat X = W_2 + 0.5\nu,
+\]
+with $\nu\sim N(0,1)$. The structural model with true $X$ is valid (regressing $Y$ on $X$ and $W$ recovers $\beta_1=1$). But the proxy captures only the $W_2$ component of $X=W_2+U$ and misses the outcome-relevant latent $U$. Condition (3) of the Proposition fails because $\hat X$ is nearly uninformative about $X$ once $W$ is known, and the local calibration $\mu_R(Z)$ collapses toward a function of $W$ alone.
+
+The global correction estimator fits $\mu(Z)=\gamma_0+\gamma_1\hat X+\gamma_2 W_2 + \gamma_3 W_3$ by OLS on the validation sample and predicts $\hat\mu_i=Z_i^\top\hat\gamma$ for all $i\in M$. In the heterogeneous DGP this calibration model is correctly specified. In the ugly DGP it is misspecified because $\hat X$ carries almost no information about $U$.
+
+Unless otherwise noted, the main tables use $n=2000$, $n_{\mathrm{val}}=500$, $\delta=0.15$, and 100 Monte Carlo replications. For global methods, bias is computed unconditionally relative to the full-sample oracle using $X$. For domain methods, bias is computed only across replications that pass audit, relative to the oracle on the selected domain. All standard errors and interval comparisons are conditional on the selected domain and do not account for domain-selection uncertainty.
+
+\section{Results}
+
+\subsection{What each method delivers}
+
+Table~\ref{tab:main} summarizes the landscape. The purpose is not to declare a winner but to show what each approach provides and where it breaks down, so that the analyst can choose appropriately for a given application.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Simulation results across methods and scenarios ($n=2000$, $n_{\mathrm{val}}=500$, $\delta=0.15$, 100 replications)}
+\label{tab:main}
+\begin{tabularx}{\linewidth}{lYrrrrr}
+\toprule
+Scenario & Method & Bias & \%Bias & Pass & $n_\mathrm{pass}$ & Share \\
+\midrule
+Benign & Naive & $-0.080$ & $-8.0$ & -- & -- & -- \\
+Benign & Global correction & $-0.000$ & $-0.0$ & -- & -- & -- \\
+Benign & Validation only & $-0.001$ & $-0.1$ & -- & -- & -- \\
+Benign & SIM (projected) + corr & $-0.000$ & $-0.0$ & 99\% & 99 & 1.00 \\
+\addlinespace
+Heterogeneous & Naive & $-0.711$ & $-71.3$ & -- & -- & -- \\
+Heterogeneous & Global correction & $0.004$ & $0.4$ & -- & -- & -- \\
+Heterogeneous & Validation only & $0.003$ & $0.3$ & -- & -- & -- \\
+Heterogeneous & SIM (projected) + corr & $-0.054$ & $-5.4$ & 7\% & 7 & 0.34 \\
+\addlinespace
+Ugly & Naive & $-1.999$ & $-100.0$ & -- & -- & -- \\
+Ugly & Global correction & $-1.596$ & $-79.8$ & -- & -- & -- \\
+Ugly & Validation only & $-0.001$ & $-0.0$ & -- & -- & -- \\
+Ugly & SIM (projected) + corr & -- & -- & 0\% & 0 & -- \\
+\bottomrule
+\end{tabularx}
+\caption*{\emph{Notes.} For domain methods, bias is reported only across replications that pass audit (the $n_{\mathrm{pass}}$ column shows how many). ``Share'' is the accepted fraction of the sample when the audit passes. Effects are homogeneous in all three DGPs, so $\beta_1(R)=\beta_1=1$.}
+\end{table}
+
+The table confirms what the swap-path figure already suggests. When the proxy is benign, a global correction based on a correctly specified calibration model is the simplest and best option. The SIM pipeline agrees---it passes, retains the full sample, and matches the global correction---but adds no value beyond confirming that the proxy is adequate. When the proxy is heterogeneous, a correctly specified global correction again dominates: $0.4\%$ bias without any domain restriction. The SIM pipeline passes infrequently ($7\%$) and, when it does, achieves $-5.4\%$ domain-relative bias on a third of the sample. This is worse than the global correction by every metric.
+
+The pipeline earns its keep in neither of these scenarios. Its value is elsewhere.
+
+\textbf{Where the pipeline adds something.} The swap-path figure and the SIM decomposition tell the analyst things that a global correction does not. A flat swap path says the proxy is safe; a steep one says it is not. SIM says \emph{where} the sensitivity lives. These diagnostics are useful even---especially---when the analyst plans to use a global correction, because they reveal whether the calibration model is working and where it might be failing. The audit gate adds something in the ugly scenario: both SIM variants correctly refuse to accept any domain, signaling that the proxy is not credible for this coefficient. Global correction, by contrast, silently produces $-80\%$ bias. The pipeline's refusal is informative.
+
+\textbf{When the pipeline is the primary tool.} The scenarios above are designed so that a linear calibration model happens to be correctly specified in the benign and heterogeneous cases. In practice, the analyst rarely knows this. When the calibration model is wrong---because the measurement error has unknown structure, or because $E[X\mid Z]$ is nonlinear in ways the analyst cannot anticipate---the global correction can fail without warning. The swap path and audit gate provide a check that does not depend on getting the calibration model right.
+
+\subsection{The precision question}
+
+The domain is useful for estimation only if the bias budget does not erase the precision gain. The bias-robust decision interval has half-width $1.96\,\SE_{\mathrm{domain}}+\delta$, and the domain beats the validation-only estimator only if
+\[
+1.96\,\SE_{\mathrm{domain}}+\delta < 1.96\,\SE_{\mathrm{val\text{-}only}},
+\]
+which rearranges to
+\[
+\SE_{\mathrm{val\text{-}only}} > \SE_{\mathrm{domain}} + \frac{\delta}{1.96}.
+\]
+In a balanced design, $\SE$ scales roughly as $\sigma/\sqrt{n_{\mathrm{eff}}}$, so the domain helps when the validation sample is small enough that its SE exceeds the domain SE by at least $\delta/1.96$. For example, with $\delta=0.05$ and $\SE_{\mathrm{domain}}\approx 0.05$, the domain beats validation only if $\SE_{\mathrm{val}}>0.076$, corresponding to roughly $n_{\mathrm{val}}<170$. At $\delta=0.15$, the required threshold rises to $\SE_{\mathrm{val}}>0.127$, or $n_{\mathrm{val}}<60$.
+
+In the simulations, with $n_{\mathrm{val}}=500$, the validation-only SE is approximately $0.044$ (half-width $\pm 0.087$). At every distortion budget from $\delta=0.05$ to $\delta=0.30$, the domain decision interval is wider than the validation-only interval. The validation sample is already precise enough that the bias penalty dominates any gain from extra proxy-only rows.
+
+The precision case for domain borrowing is therefore narrow. It arises in the expensive-gold-standard regime---hand-coded text annotations, expert clinical assessments, personally administered bioassays---where each validated observation is costly and the analyst can afford only a few dozen. In most survey or administrative-data settings with hundreds of validated rows, the framework's value is diagnostic, not inferential.
+
+\subsection{Audit threshold and validation size}
+
+Tables~\ref{tab:delta} and~\ref{tab:nval} show two distinct facts. The audit threshold controls the pass-rate/distortion tradeoff, and the validation sample size controls how credible a pass is.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Varying the distortion budget $\delta$ (heterogeneous DGP, projected SIM, 60 replications)}
+\label{tab:delta}
+\begin{tabular}{rrrrl}
+\toprule
+$\delta$ & Pass rate & $n_{\mathrm{pass}}$ & Bias if pass & Share if pass \\
+\midrule
+0.05 & 2\%  & $\sim 1$  & 0.256 & 0.30 \\
+0.10 & 8\%  & $\sim 5$  & 0.012 & 0.36 \\
+0.15 & 13\% & $\sim 8$  & 0.026 & 0.35 \\
+0.25 & 17\% & $\sim 10$ & $-0.000$ & 0.43 \\
+0.50 & 48\% & $\sim 29$ & $-0.027$ & 0.79 \\
+\bottomrule
+\end{tabular}
+\caption*{\emph{Note.} The $\delta=0.05$ row is based on roughly one accepted replication and should not be interpreted substantively. With 60 MC draws, the standard error of a 10\% pass rate is $\pm 3.9$ percentage points.}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Varying validation size (heterogeneous DGP, projected SIM, $\delta=0.15$, 60 replications)}
+\label{tab:nval}
+\begin{tabular}{rrrrl}
+\toprule
+$n_{\mathrm{val}}$ & Pass rate & $n_{\mathrm{pass}}$ & Bias if pass & Share if pass \\
+\midrule
+200 & 10\% & $\sim 6$ & $-0.226$ & 0.44 \\
+400 & 8\%  & $\sim 5$ & $-0.094$ & 0.46 \\
+600 & 13\% & $\sim 8$ & $-0.069$ & 0.36 \\
+800 & 10\% & $\sim 6$ & $-0.020$ & 0.37 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The pass rate stays in the same broad range as $n_{\mathrm{val}}$ increases, but the conditional-on-pass bias shrinks sharply. Larger validation samples make the audit more informative rather than more permissive.
+
+\subsection{Unconditional policy performance}
+
+The analyst experiences the \emph{policy}, not the pass-conditioned table: run the pipeline, use the domain estimate if it passes, and otherwise fall back to validation only. In the heterogeneous scenario with $\delta=0.15$, the projected pipeline passes roughly 7--13\% of the time. The unconditional expected bias is therefore about
+\[
+0.07\times (-0.054) + 0.93\times 0.003 \approx -0.001,
+\]
+and the unconditional expected standard error is about
+\[
+0.07\times 0.106 + 0.93\times 0.044 \approx 0.048.
+\]
+In this configuration the overall policy is dominated by the fallback: most of the time the analyst ends up with the validation-only estimate.
+
+\section{Using the framework in practice}
+
+The framework is a diagnostic and decision procedure. The analyst should not expect it to rescue a bad proxy or to produce tighter intervals than a well-powered validation-only estimate. Its value is in making the proxy question concrete and answerable before the analyst commits to an estimation strategy.
+
+The natural starting point is the swap path. Before fitting any calibration model or selecting any domain, the analyst plots $\phi_V(p)$ and looks at its shape. A flat path settles the question immediately: the proxy is adequate for this coefficient on this dataset, and the analyst can proceed with whatever global method they prefer. A steep path raises a follow-up question---where is the sensitivity concentrated?---which the SIM decomposition answers. Together, the swap path and SIM are useful even if the analyst never intends to select a domain or borrow proxy-only observations. They function as a pre-analysis check on any proxy-based regression, analogous to plotting residuals before interpreting a fitted model.
+
+If the analyst does want to use proxy-only rows, the audit gate and the precision inequality are the two checkpoints. The audit gate asks whether there is a credible observable domain where proxy substitution is low-distortion. The precision inequality asks whether borrowing on that domain actually tightens the interval after accounting for the distortion budget $\delta$. Both must be satisfied for the domain to add value. A common outcome, as the simulations illustrate, is that the audit passes but the precision comparison fails: the validation-only estimate is already precise enough that the bias penalty from $\delta$ dominates. In that case the analyst should report the validation-only estimate and use the swap path and SIM as supplementary diagnostics.
+
+When the analyst does report a domain-restricted estimate, the accepted domain and the induced target $\beta_1(R)$ should be described alongside the point estimate. If treatment effects may be heterogeneous, $\beta_1(R)$ is a local parameter, and the reader needs to know what population it applies to. This is no different from reporting complier average treatment effects in an IV design: the estimand depends on the identifying variation, and transparency about that dependence is part of the result.
+
+\section{Limitations}
+
+The framework depends on an internal validation sample. Without paired observations of $(X_i, \hat X_i)$ for at least a subsample, the swap path, SIM, and audit are undefined. Methods that do not require validation data---SIMEX, for example, which needs only the measurement error variance---operate under different assumptions and answer a different question.
+
+The portable risk score $r(Z)$ is a model for how proxy sensitivity varies with observables. If proxy quality varies for reasons not captured by $Z$---idiosyncratic coding errors, unit-specific noise, or latent heterogeneity in measurement technology---then the risk score will misclassify some rows, and the audit gate may not detect the failure when the validation sample is small. The simulations show that the audit is noisy at $n_{\mathrm{val}}=500$, and conditional-on-pass bias remains substantial until $n_{\mathrm{val}}$ reaches several hundred. The analyst should invest in validation data until a pass is credible for the application at hand.
+
+Domain-selection uncertainty is not reflected in the reported standard errors or interval comparisons. Because the domain $R(Z)=1$ is chosen using data---sometimes including outcome information through the distortion criterion---the target $\beta_1(R)$ is a selected quantity, and the standard errors are conditional on that selection. For a diagnostic paper this is acceptable; for formal inference it is a gap. A natural extension would condition on the selected domain and construct valid intervals via a wild bootstrap on the fixed hybrid design $X^{(S)}$. That would produce a family of inferential summaries indexed by $S$ or by $p$ in the swap path. Establishing validity uniformly across designs is a harder problem that we leave open.
+
+\section{Conclusion}
+
+Validation swaps offer a structured way to use internal validation data without pretending that proxies can always be globally repaired. The central objects are simple: a swap path that diagnoses coefficient sensitivity, a rowwise decomposition that shows where the sensitivity comes from, a portable risk score that proposes observable safe domains, and a held-out audit that decides whether those domains are credible enough to use. The framework is strongest when read as a disciplined sensitivity-and-decision workflow. Its main promise is not universal consistency, but controlled local borrowing.
+
+\end{document}

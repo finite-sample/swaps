@@ -1,0 +1,41 @@
+{
+  "checked": "2026-10-17",
+  "entries": {
+    "cochran1977": {
+      "source": "https://www.wiley-vch.de/en/areas-interest/mathematics-statistics/sampling-techniques-978-0-471-16240-7",
+      "authors": [
+        "William G. Cochran"
+      ],
+      "title": "Sampling Techniques",
+      "year": 1977,
+      "edition": "3",
+      "publisher": "John Wiley & Sons",
+      "isbn": "9780471162407"
+    },
+    "erdos1959": {
+      "source": "https://real.mtak.hu/200900/",
+      "authors": [
+        "Pál Erdős",
+        "Alfréd Rényi"
+      ],
+      "title": "On the Central Limit Theorem for Samples from a Finite Population",
+      "year": 1959,
+      "volume": "4",
+      "issue": "1",
+      "pages": "49-61",
+      "note": "Bibliography uses the English journal title and the conventional English given name Paul."
+    },
+    "hajek1960": {
+      "source": "https://real.mtak.hu/200979/",
+      "authors": [
+        "Jaroslav Hájek"
+      ],
+      "title": "Limiting Distributions in Simple Random Sampling from a Finite Population",
+      "year": 1960,
+      "volume": "5",
+      "issue": "3",
+      "pages": "361-374",
+      "note": "Bibliography uses the English translation of the journal title."
+    }
+  }
+}

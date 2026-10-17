@@ -1,0 +1,64 @@
+{
+  "coalition_check": {
+    "n": 30,
+    "validation_size": 5,
+    "endpoint_gap": 0.0874319914114925,
+    "exact_shapley": [
+      -0.24536955785526782,
+      -0.022307887340119,
+      0.06166772688823985,
+      0.34008318983651753,
+      -0.046641480117878074
+    ],
+    "exact_uniform_coalition_banzhaf": [
+      -0.2470393025411185,
+      -0.022722342114340058,
+      0.060650295211834696,
+      0.3372903748112116,
+      -0.04770935315844861
+    ],
+    "original_algorithm_20000_draws": [
+      -0.24668868487402307,
+      -0.022638337343652188,
+      0.06074263345063932,
+      0.33747208149644314,
+      -0.04763327210679665
+    ],
+    "shapley_sum": 0.08743199141149247,
+    "banzhaf_sum": 0.08046967220913913,
+    "banzhaf_efficiency_error": -0.006962319202353365,
+    "mc_max_error_to_banzhaf": 0.00035061766709543196,
+    "mc_max_error_to_shapley": 0.002611108340074386
+  },
+  "dgp_check": {
+    "ugly_oracle_coefficient": 1.9990042345009502,
+    "ugly_linear_calibration_coefficients": [
+      -0.0013802843694721545,
+      -0.006865559348757013,
+      1.0058178633139898,
+      -0.00016004988598824696
+    ],
+    "heterogeneous_linear_conditional_mean_rmse": 0.4522163100997557,
+    "heterogeneous_linear_projection_corrected_coefficient": 0.9952454016857585,
+    "heterogeneous_true_conditional_mean_corrected_coefficient": 0.9962120673636026
+  },
+  "calibration_uncertainty": {
+    "replications": 300,
+    "mean_estimate": 1.0076457746181768,
+    "empirical_standard_deviation": 0.10772820430355164,
+    "mean_reported_hc1_se": 0.06589405844085831,
+    "coverage_using_reported_hc1": 0.7433333333333333
+  },
+  "set_membership_bug": {
+    "original_set_input": [
+      false,
+      false,
+      false
+    ],
+    "array_input": [
+      true,
+      false,
+      true
+    ]
+  }
+}

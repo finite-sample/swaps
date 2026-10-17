@@ -1,608 +1,646 @@
 \documentclass[11pt]{article}
-
 \usepackage[margin=1in]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
-\usepackage{amsmath,amssymb,amsthm}
-\usepackage{booktabs,tabularx,array}
-\usepackage{float}
-\usepackage{xcolor}
-\usepackage{hyperref}
-\usepackage{setspace}
-\usepackage{caption}
+\usepackage{amsmath,amssymb,booktabs,graphicx,float,xcolor,caption}
 \usepackage[round]{natbib}
-
-\hypersetup{
-  colorlinks=true,
-  linkcolor=blue!50!black,
-  citecolor=blue!50!black,
-  urlcolor=blue!50!black
-}
-\setstretch{1.04}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black}
 \setlength{\parindent}{0pt}
-\setlength{\parskip}{0.42em}
+\setlength{\parskip}{0.45em}
 \captionsetup{font=small,labelfont=bf}
-\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
-
 \newcommand{\E}{\mathbb{E}}
 \newcommand{\V}{\mathbb{V}}
-\newcommand{\1}{\mathbf{1}}
-\newtheorem{proposition}{Proposition}
 \input{generated/macros.tex}
-
-\title{\textbf{Validation-Swap Distributions}\\[0.35em]
-\large Diagnosing Machine-Scored Outcomes in Experiments}
+\input{generated/covariates/macros.tex}
+\input{generated/archives/macros.tex}
+\title{\textbf{Which Prediction Errors Matter?}\\[0.4em]
+\large Finite Covariate-Correction Paths for Downstream Regression}
 \author{}
-\date{August 2026}
-
+\date{October 2026}
 \begin{document}
 \maketitle
-
 \begin{abstract}
-In an experiment with clustered treatment assignment, a machine-learning or
-large language model scores every outcome, and human labels are affordable for
-only some clusters. Had assignment been individual, fixed scoring error would
-be balanced by design and only treatment-dependent error would bias the
-contrast; clustering removes that protection, leaving few effective units for
-both balancing and validation. Before coding begins, the researcher must decide how many
-clusters to validate, and the decision requires knowing what each budget buys.
-Two-phase and prediction-powered estimators correct the treatment effect with
-the labeled clusters, and power analysis prices a labeling design by the
-estimator's asymptotic variance. When scoring error is concentrated in a few
-clusters, the variance misprices the risk: the corrected estimate's
-distribution across possible label sets is discrete and far from Normal, with
-most draws moving the estimate not at all and a few moving it far. We price
-the design by that distribution itself. For each budget $k$ we swap human
-labels into a set of $k$ clusters, recompute the treatment effect, and
-enumerate all sets exactly, which is feasible in benchmarks, pilots, and fully
-coded studies used to plan smaller budgets. As $k$ grows, the mean of the
-distribution moves on a straight line from the machine-scored estimate to the
-fully human-coded one, whatever the error structure, so everything that
-distinguishes labeling designs lies in the dispersion and tails. In a worked
-example, two scoring systems agree on RMSE, $R^2$, both endpoints, and the
-entire mean path, yet when the error sits in two of twenty clusters, labeling
-five clusters leaves the estimate unchanged \ConcentratedZeroMove\ of the
-time. With a single real validation draw the full distribution is out of
-reach, but its variance at every budget remains estimable without bias, and a
-negligibility condition says when a Normal approximation can be trusted: only
-when no small set of clusters dominates the correction. The distribution
-conditions on the observed pool of gold labels; inference about the population
-still requires a probability validation design or a transport model.
+Correcting errors in machine-learned covariates can change a treatment-effect
+estimate in ways that separate corrections do not predict. Each correction
+changes the regression's adjustment for other variables, so its effect can
+depend on which errors have already been corrected. Existing methods use
+verified measurements to correct inference and guide validation. We study the
+joint effects of finite corrections on a fitted coefficient. Our diagnostic
+replaces sets of proxy covariates with verified values and compares the resulting
+refits with the sum of isolated correction effects. Exact least-squares identities
+locate the source of nonadditivity in changes to the regression's cross-product
+matrix. Correction paths describe how the coefficient moves as more measurements
+are corrected, and their dispersion describes how much the choice of correction
+set matters. Established Shapley methods attribute the endpoint change.
+Simulations illustrate these distinctions. Applications to housing and text-coded
+incivility compare refits with three additive approximations: isolated corrections
+track small random correction sets closely but misstate the full correction.
+The resulting diagnostic measures both the consequences
+of individual errors and the additional changes produced by correcting them
+together.
 \end{abstract}
 
-Researchers can score every response in an experiment with a classifier, a
-computer-vision model, or a large language model while paying human coders to
-score only a fraction \citep{gilardi2023}. The cheap score may have excellent
-test-set accuracy and still distort the treatment effect. The relevant error is not average scoring
-error. It is the difference in scoring error between treatment arms.
+\section{Introduction}
 
-Suppose an experiment tests whether a message changes the hostility expressed in
-an open-ended response. A language model scores hostility for all respondents,
-and human coders score a random subset. The model can overstate hostility by two
-hundredths in one arm and understate it by two hundredths in the other. Its mean
-error is zero, but the estimated treatment effect is wrong by four hundredths.
-Aggregate accuracy conceals this error because accuracy and the treatment
-contrast weight observations differently.
+Correcting a covariate changes the regression's adjustment for confounding.
+Consequently, the effect of correcting one observation can depend on which other
+observations have already been corrected. This matters when researchers use
+machine-learning predictions as covariates: an assessment of errors one at a time
+can misrepresent the change in a treatment coefficient when those errors are
+corrected together. We study these joint correction effects and develop a
+diagnostic that measures them through regression refits.
 
-Existing methods already correct downstream inference with a small set of gold
-labels. Post-prediction inference, design-based supervised learning, and
-prediction-powered inference combine predictions on many observations with
-gold-label residuals on a smaller probability sample
-\citep{wang2020,egami2023,angelopoulos2023,angelopoulos2023ppi}. Two-phase
-designs for allocating expensive measurements go back to
-\citet{neyman1938}; modern treatments choose the validation sample to minimize
-the variance of a target estimator \citep{amorim2021}, including adaptively
-\citep{zrnic2024}. Parallel corrections exist when the machine prediction
-enters the analysis as a regression covariate rather than the outcome
-\citep{fong2021}. Work on text as data explains why a learned outcome
-requires separate measurement and causal design choices \citep{egami2022}.
-These methods establish the estimator and its uncertainty.
+Predicted covariates allow researchers to incorporate information that would
+otherwise be expensive to measure, including attributes coded from text and
+variables missing from linked datasets. Their errors can distort coefficient
+estimates and conventional standard errors \citep{fong2021,battaglia2024}.
+Prediction accuracy does not summarize that distortion because it does not
+record how errors relate to treatment, outcomes, and the other regressors.
+When a predicted variable serves as a confounder, its measurement quality is
+also distinct from the assumptions that identify a causal effect
+\citep{egami2022}. The practical question is how the observed errors change the
+coefficient a researcher wants to interpret.
 
-This paper asks how much the corrected answer depends on which clusters
-receive the gold labels, and builds the argument from the case where the
-answer is boring. In an individually randomized experiment, scoring error
-that is a fixed attribute of the response is balanced by randomization like
-any baseline covariate, however strongly it clusters by dialect, site, or
-coder batch. Only error that depends on treatment itself biases the contrast,
-and an ordinary validation sample corrects that bias with textbook two-phase
-theory. Clustered assignment removes this protection twice over: the
-balancing now operates over a few clusters rather than many individuals, and
-validation samples those same few clusters, so the correction inherits the
-randomness of which clusters were checked. We characterize that randomness
-exactly through the fixed-budget random-swap distribution of the
-treatment-effect estimate. Its spread shows whether a validation budget
-produces a stable correction or a lottery; its tails show how often the
-estimate moves by more than a prespecified substantive amount.
+Our diagnostic compares the effect of correcting a set of measurements with
+the sum of the effects of correcting each measurement separately. All
+observations remain in the regression, and the outcome and specification stay
+fixed. Only the selected proxy covariates are replaced with verified values.
+The discrepancy between the joint and summed effects measures nonadditivity
+for that set. Repeating the comparison across sets reveals which corrections
+have effects that depend on the surrounding measurements. A correction path
+summarizes the coefficient as the number of corrected measurements increases;
+its dispersion records how different choices at the same correction budget
+produce different results.
 
-The contribution is deliberately narrow. The estimator below is a special
-case of established difference and prediction-powered estimators, and each
-formal result is a short application of standard sampling theory. What is new
-is the object: the exact distribution of the corrected estimate over labeling
-designs, used to price a validation budget before it is spent.
+For ordinary least squares, the source of this dependence is explicit.
+Disjoint corrections have additive effects on the estimating equation evaluated
+at the proxy fit, but they also change the cross-product matrix that maps those
+changes into coefficient movements. Its inverse depends on the whole correction
+set. Thus even exact individual refits need not add up to the joint refit.
+An algebraic example gives a jointly corrected coefficient of $1/2$ where
+summing the isolated effects predicts zero
+(Appendix~\ref{app:undetected-interactions}). This is a property of finite
+regression corrections, established without simulation. Numerical examples then
+illustrate how the discrepancy varies with error magnitude and its relation to
+treatment.
 
-\section{Machine scores as experimental outcomes}
+Verified measurements already support methods for correcting inference with
+predicted variables. These include methods for predicted outcomes,
+prediction-powered inference and its efficiency refinements, and design-based
+supervised learning \citep{wang2020,angelopoulos2023,angelopoulos2023ppi,egami2023}.
+Extensions explicitly accommodate imputed covariates and nonuniform verification
+samples \citep{kluger2025}. These procedures address estimation of a population
+parameter. We examine how finite replacements change a specified fitted
+coefficient, conditional on the available verified measurements. A partially
+corrected fit is a diagnostic comparison; it does not inherit the inferential
+properties of a bias-corrected estimator.
 
-An experiment measures an outcome for units $i=1,\ldots,N$, of which $N_1$
-are treated and $N_0$ are control. Human coding of the outcome $Y_i$ is
-expensive, so a machine score $\widehat Y_i$ stands in for it. Define the
-scoring error
+Target-specific verification also has a substantial literature. Two-phase
+sampling allocates expensive measurements using information collected on a
+larger sample \citep{neyman1938,amorim2021}. For regression and causal parameters,
+allocation may depend on influence functions or on residual influence after
+using auxiliary information \citep{chenlumley2022,wang2023design}. Active
+statistical inference projects gold-minus-proxy score discrepancies through an
+inverse Hessian, while adaptive multiwave M-estimation uses influence
+contrasts to guide subsequent verification \citep{zrnic2024,kluger2026}.
+Those methods already ask which errors matter for a target. Our comparison
+asks how well additive summaries describe the consequences of correcting
+specific sets. A discrepancy from a fixed influence approximation does not
+establish a failure of an adaptive procedure that updates its scores or uses
+different gold and proxy fits.
+
+Local influence analysis studies how measurement error affects regression
+estimates \citep{lee1996}. Simulation-extrapolation adds noise and extrapolates
+toward the error-free case \citep{cook1994}. Infinitesimal-jackknife methods provide refit
+approximations and error bounds, including higher-order expansions
+\citep{giordano2019higher,giordano2019}. Influence functions and Shapley values
+also explain predictions and value training observations
+\citep{koh2017,ghorbani2019,karlas2024}. We apply baseline-replacement Shapley
+values to a regression coefficient \citep{sundararajan2020}. The mean path
+under independent random corrections is Owen's multilinear extension evaluated
+at a common inclusion probability \citep{owen1972}. These tools summarize and
+attribute finite coefficient changes; the regression diagnostic supplies their
+interpretation here.
+
+The analysis separates three quantities: the endpoint coefficient change,
+nonadditivity of corrections, and dispersion across correction sets. They
+answer different questions. In particular, a straight mean path need not imply
+that the choice of corrections is inconsequential. We report all three and
+compare full refits with isolated corrections and two influence approximations.
+The numerical examples hold prediction RMSE fixed across error patterns to
+illustrate how error alignment and concentration affect these quantities.
+Two replication archives then show how the comparisons behave with actual
+predictions and reference measurements. In housing, we correct adjustment
+covariates; in a text application, we correct the regressor of interest. Both
+applications concern descriptive associations, and neither evaluates a
+prospective sampling policy.
+
+\section{A game of verified replacements}
+
+Let $X$ be the proxy design matrix, including an intercept, and $y$ the outcome.
+Let $G_1,\ldots,G_m$ be disjoint sets of rows with verified design values.
+A player is one such correction unit; it can be a single observation or a batch.
+For $S\subseteq\{1,\ldots,m\}$, replace precisely the rows belonging to players
+in $S$, giving $X_S$. Define the value of that correction set as
 \begin{equation}
-e_i=Y_i-\widehat Y_i.
-\label{eq:error}
+ v(S)=e_t^\top(X_S^\top X_S)^{-1}X_S^\top y,
+ \label{eq:game}
 \end{equation}
-The machine score must be fixed independently of the outcome analysis. A score
-learned on the experimental outcomes requires a separate training sample or an
-appropriate cross-fitting design. Swaps do not repair overfitting.
+where $t$ indexes the coefficient of interest. Every design used in this game
+must have full column rank. We use least-squares refits and report a failure if a
+coalition is rank deficient; a pseudoinverse would silently redefine the target.
 
-For clarity, consider the unadjusted difference in means. The proxy and gold
-estimates are
+The baseline $v(\varnothing)$ is the proxy fit. The endpoint $v(M)$ corrects the
+declared pool $M$, not any unverified observations outside it. Both are
+finite-sample regression coefficients. Even if the gold regression identifies a
+causal parameter in the population, their difference is not itself an estimate
+of population measurement-error bias without additional assumptions.
+
+For a given correction set, define its departure from isolated corrections as
+\begin{equation}
+ R(S)=v(S)-v(\varnothing)
+       -\sum_{i\in S}\{v(\{i\})-v(\varnothing)\}.
+ \label{eq:nonadditivity}
+\end{equation}
+This discrepancy is in coefficient units. The correction game is additive
+exactly when $R(S)=0$ for every set $S$. A zero discrepancy for one set alone
+does not establish additivity, since interactions within it can cancel.
+
+\subsection{Mean paths and correction-set dispersion}
+
+Independently include player $i$ with probability $p_i$. The expected coefficient
+is the multilinear extension of the finite game \citep{owen1972}:
+\begin{equation}
+ F(\mathbf p)=\sum_{S\subseteq M}v(S)
+       \prod_{i\in S}p_i\prod_{i\notin S}(1-p_i).
+\end{equation}
+The common-probability path is $\phi(p)=F(p,\ldots,p)$. Let $S_k$ be uniform over
+all subsets of exactly $k$ players and $\mu_k=\E[v(S_k)]$. Then
+\begin{equation}
+ \phi(p)=\sum_{k=0}^{m}\binom{m}{k}p^k(1-p)^{m-k}\mu_k.
+ \label{eq:mixture}
+\end{equation}
+The Bernoulli design has a random correction count; the fixed-budget design does
+not. Their variances differ because the former also varies that count. We
+report both, and store the entire finite distribution at each fixed budget.
+These are distributions over correction sets conditional on the data, not
+sampling distributions of a population estimator.
+
+If $v(S)=v(\varnothing)+\sum_{i\in S}a_i$, then both mean paths interpolate
+between the endpoints. Curvature therefore rules out additivity, but a straight
+path does not establish it: average interactions can cancel. A straight path
+also need not have small dispersion. Accordingly, we report errors of additive
+approximations at the coalition level as well as mean curvature and fixed-budget
+dispersion.
+
+\subsection{Attribution along the path}
+
+Let $S_{-i}(p)$ independently include every player other than $i$ with probability
+$p$, and define
+\begin{equation}
+ d_i(p)=\E[v(S_{-i}(p)\cup\{i\})-v(S_{-i}(p))].
+\end{equation}
+The derivative satisfies $\phi'(p)=\sum_i d_i(p)$. The Shapley attribution is
 \begin{align}
-\widehat\tau_P
-&=\frac{1}{N_1}\sum_{i:D_i=1}\widehat Y_i
--\frac{1}{N_0}\sum_{i:D_i=0}\widehat Y_i,\\
-\widehat\tau_G
-&=\frac{1}{N_1}\sum_{i:D_i=1}Y_i
--\frac{1}{N_0}\sum_{i:D_i=0}Y_i,
+ s_i&=\int_0^1 d_i(p)\,dp\\
+ &=\frac1m\sum_{k=0}^{m-1}
+ \E[v(S\cup\{i\})-v(S)\mid |S|=k,\ i\notin S],
+ \label{eq:shapley}
 \end{align}
-and their gap is a weighted sum of the errors,
-\begin{equation}
-\widehat\tau_G-\widehat\tau_P=\sum_{i=1}^{N}w_ie_i,
-\qquad
-w_i=\frac{D_i}{N_1}-\frac{1-D_i}{N_0}.
-\label{eq:gap}
-\end{equation}
-Whether scoring error is a problem is entirely a question about this weighted
-sum. Error orthogonal to the treatment weights leaves the contrast intact no
-matter how large the errors are.
+so $\sum_i s_i=v(M)-v(\varnothing)$. This integral representation is established
+\citep{owen1972,okhrati2021}. Uniformly averaging over all subsets of other
+players instead gives $d_i(1/2)$, the unnormalized Banzhaf attribution, which
+generally does not sum to the endpoint change. The implementation distinguishes
+the two; its tests use a three-player unanimity game, for which the respective
+per-player values are $1/3$ and $1/4$.
 
-Like outcomes, errors have potential values: $e_i(d)=Y_i(d)-\widehat Y_i(d)$
-for assignment $d\in\{0,1\}$. Call the error \emph{non-differential} when
-$e_i(1)=e_i(0)$, so the score misreads unit $i$'s response by the same amount
-under either assignment. \emph{Differential} error, such as a model that
-misreads the style treated respondents adopt, violates this condition.
+The choice of game matters \citep{sundararajan2020}. These values attribute
+movement in a regression coefficient, not prediction accuracy or social welfare.
+Positive contributions are not inherently beneficial, since improvement depends
+on a separate target and loss. Batch-game values also depend on grouping and
+generally do not equal sums of individual-row Shapley values.
 
-Sections~\ref{sec:base} and~\ref{sec:breaks} take expectations over treatment
-assignment to establish orders of magnitude. From
-Section~\ref{sec:swap} onward the analysis conditions on the realized
-experiment: outcomes, scores, and assignment are fixed, and the only
-randomness studied is the validation draw.
+\section{What an influence approximation omits}
 
-\section{The base case: individually randomized experiments}
-\label{sec:base}
-
-Assign treatment by complete randomization at the individual level. Under
-non-differential error, each $e_i$ is a fixed attribute of unit $i$, and the
-gap in equation~\eqref{eq:gap} averages fixed numbers over a random
-assignment:
-\begin{equation}
-\E_R\!\left[\widehat\tau_G-\widehat\tau_P\right]=0,
-\qquad
-\V_R\!\left[\widehat\tau_G-\widehat\tau_P\right]
-=\left(\frac{1}{N_1}+\frac{1}{N_0}\right)S_e^2,
-\label{eq:basecase}
-\end{equation}
-where $S_e^2$ is the finite-population variance of the errors and $\E_R$
-averages over assignments. Scoring error behaves exactly like a baseline
-covariate: randomization balances it, and its realized imbalance is
-$O_p(N^{-1/2})$ noise of the same order as the sampling variability the
-standard error already reports.
-
-Group structure in the errors changes nothing. If a group $h$ of $n_h$ units
---- a dialect, a site, a coder batch --- shares a common error component
-$\mu_h$, its contribution to the gap is
-\begin{equation}
-\mu_h\left(\frac{n_{h1}}{N_1}-\frac{n_{h0}}{N_0}\right),
-\label{eq:imbalance}
-\end{equation}
-where $n_{h1}$ and $n_{h0}$ count the group's treated and control units.
-Under individual randomization the imbalance in parentheses is
-$O_p(\sqrt{n_h}/N)$: group-correlated error cancels across arms because
-randomization splits every group.
-
-The one threat that survives the base case is differential error. If
-$e_i(1)\neq e_i(0)$, the gap converges to the average error contrast
-$\E[e(1)-e(0)]$, a bias no sample size repairs. Even then nothing bespoke is
-required: a simple random sample of $m$ units receives human labels, the
-paired discrepancies estimate the bias at rate $m^{-1/2}$, and the standard
-two-phase and prediction-powered corrections apply with independent-sampling
-theory \citep{neyman1938,angelopoulos2023}.
-
-What cannot substitute for those labels is an accuracy audit.
-
-\begin{proposition}[Sharp accuracy bound]
-\label{prop:bound}
-Let $r=(N^{-1}\sum_ie_i^2)^{1/2}$ be the root mean squared error of the
-machine score on the experimental sample. For every error configuration,
-\begin{equation}
-|\widehat\tau_G-\widehat\tau_P|
-\le r\sqrt{N\left(\frac{1}{N_1}+\frac{1}{N_0}\right)},
-\label{eq:bound}
-\end{equation}
-with equality exactly when $e_i$ is proportional to the contrast weight
-$w_i$.
-\end{proposition}
-
-\begin{proof}
-The gap in equation~\eqref{eq:gap} is linear in the errors. By the
-Cauchy--Schwarz inequality its absolute value is at most $\|w\|\,\|e\|$,
-where $\|w\|^2=1/N_1+1/N_0$ and $\|e\|^2=Nr^2$, with equality exactly when
-$e$ is proportional to $w$.
-\end{proof}
-
-The bound is attainable, and it is weak at the scale that matters. In the
-numerical design below, RMSE \PredictionRMSE\ permits an endpoint gap as
-large as \WorstCaseGap, \WorstCaseGapMultiple\ times the gold treatment
-effect of \GoldATE. Accuracy metrics constrain the contrast only at the order
-of $r$ itself, and they cannot separate differential from non-differential
-error. That separation requires labels.
-
-\section{What clustered assignment breaks}
-\label{sec:breaks}
-
-Now assign treatment at the cluster level, as in a site-, classroom-, or
-wave-randomized experiment: clusters $g=1,\ldots,G$ with members indexed by
-$i$, treatment $D_g$ constant within cluster, and errors written $e_{gi}$.
-Three things break at once.
-
-First, the balancing in equation~\eqref{eq:basecase} now operates over $G$
-clusters rather than $N$ individuals. Over cluster randomization with equal
-cluster sizes and equal arms, the gap is still mean zero, but its standard
-deviation is $2S_\mu/\sqrt{G}$, where $S_\mu$ is the between-cluster standard
-deviation of mean scoring error. With twenty clusters and cluster-level error
-variation comparable to the effects under study, the realized experiment
-carries a gap of the same order as the estimand. What was vanishing noise is
-now a fixed, consequential number.
-
-Second, clusters are maximal-imbalance groups. Each cluster sits wholly in
-one arm, so the imbalance factor in equation~\eqref{eq:imbalance} takes its
-extreme value for every cluster-shaped error group, and nothing cancels
-within arms. Define cluster $g$'s contribution to the endpoint gap as
-\begin{equation}
-\psi_g=
-\begin{cases}
-N_1^{-1}\sum_i e_{gi}, & D_g=1,\\
--N_0^{-1}\sum_i e_{gi}, & D_g=0.
-\end{cases}
-\label{eq:psi}
-\end{equation}
-The contributions add exactly:
-\begin{equation}
-\sum_{g=1}^{G}\psi_g=\widehat\tau_G-\widehat\tau_P.
-\label{eq:add}
-\end{equation}
-Equation~\eqref{eq:add} is an accounting identity within the paired
-gold-label pool. It does not identify the errors of unlabeled clusters. For
-OLS with fixed covariates, residualized-treatment weights replace the treated
-and control weights in equation~\eqref{eq:psi}, and the same adding-up and
-sampling identities follow; a nonlinear estimator can still be recomputed
-over swap sets, but its mean path need not be linear. When scoring failures
-are cluster-shaped --- a model that misreads one site's context is wrong for
-that whole site --- the gap concentrates in a few large $\psi_g$.
-
-Third, validation must draw whole clusters, because human recoding is
-organized in the same batches as the scoring failures. The correction
-computed from $k$ labeled clusters is therefore a statistic of $k$ draws from
-a population of $G$ numbers that a few of them may dominate: few effective
-units, and no central limit comfort when the contributions concentrate. This
-is the setting the rest of the paper prices. The same construction applies to
-documents, waves, or any other sampling unit, provided the swap unit matches
-the validation design and contains the error dependence.
-
-\section{The fixed-budget swap distribution}
-\label{sec:swap}
-
-Let $S_k$ be a simple random sample without replacement of exactly $k$ clusters.
-The raw-swap estimate replaces machine scores by human outcomes in the selected
-clusters:
-\begin{equation}
-\widehat\tau_R(S_k)=\widehat\tau_P+\sum_{g\in S_k}\psi_g.
-\label{eq:raw}
-\end{equation}
-The distribution of $\widehat\tau_R(S_k)$ over all $\binom{G}{k}$ sets is the
-raw fixed-budget swap distribution. It describes partial repair of the observed
-data. A fixed $k$ is preferable to independent Bernoulli swaps when $k$
-represents a coding budget.
-
-Let $\bar\psi=G^{-1}\sum_g\psi_g$ and
-$S_\psi^2=(G-1)^{-1}\sum_g(\psi_g-\bar\psi)^2$. Standard sampling identities
-give
+Write $\widehat\beta=(X^\top X)^{-1}X^\top y$, $r=y-X\widehat\beta$, and
+$A=X^\top X$. For a coalition's design change $\Delta=X_S-X$, define
 \begin{align}
-\E_{S_k}[\widehat\tau_R(S_k)]
-&=\widehat\tau_P+\frac{k}{G}
-(\widehat\tau_G-\widehat\tau_P),
-\label{eq:rawmean}\\
-\V_{S_k}[\widehat\tau_R(S_k)]
-&=k\left(1-\frac{k}{G}\right)S_\psi^2.
-\label{eq:rawvar}
+ B_S&=X^\top\Delta+\Delta^\top X+\Delta^\top\Delta,\\
+ q_S&=\Delta^\top r-X^\top\Delta\widehat\beta
+                   -\Delta^\top\Delta\widehat\beta.
 \end{align}
-
-Equation~\eqref{eq:rawmean} is the central result. In a linear outcome analysis,
-the average raw-swap path must be a straight line connecting the proxy and gold
-estimates. Any two scoring systems with the same endpoints have the same mean
-path. The path says nothing about whether the correction is spread evenly
-across clusters or concentrated in a few. Equation~\eqref{eq:rawvar} shows where
-that information resides. Two further facts follow directly from
-equations~\eqref{eq:add} and~\eqref{eq:rawmean} and need no proof beyond
-arithmetic. The $k=1$ distribution is uniform on
-$\{\widehat\tau_P+\psi_g\}$, so it identifies the multiset of cluster
-contributions, and every fixed-$k$ distribution is a symmetric function of
-that multiset. The mean path, by contrast, depends on the contributions only
-through their sum: any two error patterns with the same endpoints share the
-entire mean path, however differently the correction is distributed across
-clusters.
-
-The distribution supports several descriptive summaries. A researcher can
-report its central quantiles, the chance that swapping $k$ clusters changes the
-estimate's sign, and the chance that the movement exceeds a prespecified
-substantive threshold. These probabilities refer to the stated swap design.
-They are not $p$-values.
-
-Raw replacement mechanically shrinks as $k/G$ falls. If the goal is to estimate
-the fully human-coded contrast from a $k$-cluster probability sample, scale the
-observed correction by its inclusion probability:
+Subtracting the old normal equations from the new ones gives the exact identity
 \begin{equation}
-\widehat\tau_H(S_k)
-=\widehat\tau_P+\frac{G}{k}\sum_{g\in S_k}\psi_g.
-\label{eq:ht}
+ \widehat\beta_S-\widehat\beta=(A+B_S)^{-1}q_S.
+ \label{eq:update}
 \end{equation}
-This is a Horvitz-Thompson difference correction
-\citep{horvitz1952,sarndal1992}. In this simple setting it is also the
-rectifier used by prediction-powered inference \citep{angelopoulos2023}. It
-satisfies
-\begin{align}
-\E_{S_k}[\widehat\tau_H(S_k)]&=\widehat\tau_G,
-\label{eq:htmean}\\
-\V_{S_k}[\widehat\tau_H(S_k)]
-&=\left(\frac{G}{k}\right)^2
-\,k\left(1-\frac{k}{G}\right)S_\psi^2.
-\label{eq:htvar}
-\end{align}
-Thus the design-scaled swap distribution is centered on the gold endpoint. Its
-spread measures validation-sample fragility at budget $k$.
+This is ordinary least-squares algebra, not a new influence-function result.
+For disjoint row corrections, $q_S$ is the sum of the individual paired-score
+changes. Dependence of the inverse matrix on $S$ can still make their coefficient
+effects nonadditive.
 
-Unequal-probability validation replaces $G/k$ with inverse inclusion
-probabilities. Stratifying the validation draw by treatment arm or by an
-observable proxy-risk score can improve precision. Those choices change the
-swap distribution and must be included in its definition. The optimal choice
-depends on the target estimator \citep{amorim2021,zrnic2024}.
+We compare the exact target change with three additive baselines on the same
+correction sets. The principal influence baseline is $e_t^\top A^{-1}q_S$: it
+retains the finite quadratic score term while holding the inverse Gram matrix
+fixed. A feature-amplitude derivative additionally drops
+$-\Delta^\top\Delta\widehat\beta$. Finally, the single-repair baseline sums
+$v(\{i\})-v(\varnothing)$ over the chosen players. It allows each isolated repair
+to change the inverse matrix, but ignores interactions among repairs.
 
-An exact distribution requires $\psi_g$ for every cluster in the finite pool.
-That is available in a benchmark dataset, a simulation, or a large pilot used to
-study smaller future budgets. With only one small validation sample, the analyst
-cannot recover the unseen cluster contributions nonparametrically. Standard
-design-based variance estimation remains available when selection probabilities
-are known. A cluster bootstrap or a model for $e_{gi}$ can approximate more of
-the distribution, but then the result depends on resampling or transport
-assumptions.
+Neither influence approximation uniformly dominates the other. Both generally
+have second-order error as feature-error amplitude goes to zero. Retaining one
+quadratic term does not provide a complete second-order expansion. A large
+failure of the paired-score baseline does not prove that established active
+inference procedures fail: they target sampling efficiency and valid inference,
+and may update their fitted scores or use different gold and proxy influence
+functions. Our comparison addresses a fixed-baseline approximation to the finite
+raw-replacement game.
 
-The second moment of the swap distribution is nevertheless estimable from a
-single draw, at the observed budget and at every other one.
+\section{Numerical illustrations}
 
-\begin{proposition}[The variance path is estimable from one validation sample]
-\label{prop:varpath}
-Let $S_k$ be a simple random sample of $k\ge 2$ clusters, and let
-$s_\psi^2=(k-1)^{-1}\sum_{g\in S_k}(\psi_g-\bar\psi_{S_k})^2$ be the sample
-variance of the observed contributions. Then
-$\E_{S_k}[s_\psi^2]=S_\psi^2$. Substituting $s_\psi^2$ into
-equations~\eqref{eq:rawvar} and~\eqref{eq:htvar} therefore gives unbiased
-estimates of the raw and design-scaled swap variances at every budget
-$k'\in\{1,\ldots,G\}$, and Chebyshev's inequality bounds the tail probability
-$\Pr\{|\widehat\tau_H(S_{k'})-\widehat\tau_G|>\delta\}$ by
-$(G/k')^{2}k'(1-k'/G)\,S_\psi^2/\delta^{2}$ for every threshold $\delta>0$.
-\end{proposition}
-
-\begin{proof}
-Design-unbiasedness of the sample variance under simple random sampling
-without replacement is classical \citep{cochran1977,liding2017}. The variance
-claims substitute this estimate into the exact formulas, and the tail bound
-applies Chebyshev's inequality to the design-scaled estimator, which is
-centered on $\widehat\tau_G$ by equation~\eqref{eq:htmean}.
-\end{proof}
-
-A pilot at one budget therefore prices fragility at every other budget. This
-is the finite-population analogue of power analysis for prediction-powered
-inference, which chooses the labeled sample size from an asymptotic variance
-\citep{chen2026}. The estimate is honest but noisy: the sampling variance of
-$s_\psi^2$ depends on fourth moments of the contributions, so with few
-validated clusters and concentrated error the estimated variance path is
-itself fragile.
-
-Moment summaries also carry an implicit distributional assumption. The
-following negligibility condition, due to \citet{hajek1960} and stated here in
-the form of Theorem~1 of \citet{liding2017}, says when the swap distribution
-can be treated as Normal.
-
-\begin{proposition}[Normal approximations require diffuse contributions]
-\label{prop:normal}
-Embed the design in a sequence of finite populations with $G\to\infty$
-clusters and budgets $k=k(G)$. If
+To illustrate the algebraic mechanism, we simulate independent standard Normal variables $U,W,\eta,\epsilon$ and set
 \begin{equation}
-\frac{1}{\min(k,\,G-k)}\cdot
-\frac{\max_{g}(\psi_g-\bar\psi)^2}{S_\psi^2}\longrightarrow 0,
-\label{eq:hajek}
+ D=\mathbf 1\{0.8U+0.3W+\eta>0\},\qquad
+ Y=0.5D+U+0.3W+0.5\epsilon.
 \end{equation}
-then the standardized raw-swap estimate
-$\{\widehat\tau_R(S_k)-\E[\widehat\tau_R(S_k)]\}\big/\V[\widehat\tau_R(S_k)]^{1/2}$
-converges in distribution to a standard Normal, and the design-scaled
-estimate, an affine transformation at fixed $k$, converges with it. The
-condition fails when a bounded number of clusters carries a nonvanishing share
-of the centered squared contributions.
-\end{proposition}
+The verified design is $(1,D,U,W)$, and the proxy replaces $U$ by $U+e$.
+Conditional exogeneity and the additive outcome model identify the population
+treatment coefficient $0.5$ using the verified covariates. The realized gold
+coefficient need not equal $0.5$; our comparisons always use the realized fit.
 
-\begin{proof}
-The raw-swap estimate is $\widehat\tau_P$ plus $k$ times the sample mean of a
-simple random sample of the finite population $\{\psi_1,\ldots,\psi_G\}$, so
-the claim is the finite population central limit theorem for simple random
-sampling \citep{erdos1959,hajek1960}, in the sufficient form of Theorem~1 of
-\citet{liding2017}. Sharp necessary and sufficient conditions of Lindeberg type
-are in \citet{hajek1960}.
-\end{proof}
+The main example uses seed 2024, 96 observations, eight randomly assigned equal
+batches, and proxy RMSE $0.75$. Within the same dataset we compare independent
+diffuse errors, errors supported on the first batch only, and errors proportional
+to centered treatment. Each error vector is rescaled to have the same RMSE.
+The one-active-batch scenario is deliberately an additive control. The aligned
+scenario is a stress test of differential measurement error, not a claim about
+its prevalence in trained ML systems. The benchmark prescribes errors rather
+than training a predictor. In the aligned case the proxy confounder adds a
+multiple of treatment, so the proxy and gold designs span the same space while
+assigning different coefficients to treatment. Partial row replacement changes
+that relation, making this a transparent constructed stress test.
 
-The finite-sample diagnostic implied by condition~\eqref{eq:hajek} is the
-largest single-cluster share of the centered squared contributions. In the
-numerical design below, one cluster carries \HajekConcentrated\ of that total
-in the concentrated case and \HajekOffsetting\ in the offsetting case, and the
-diffuse case is degenerate. Budget planning that combines
-Proposition~\ref{prop:varpath} with a Normal approximation is therefore
-reliable exactly when the correction is diffuse, and misleading in the
-concentrated case the diagnostic exists to detect. That is the formal reason
-to examine the exact distribution rather than its first two moments.
-
-\section{A worked example: same accuracy, different prices}
-
-The numerical example has \NumClusters\ equal-size clusters with
-\ClusterSize\ observations each. Half the clusters are treated. The fully
-human-coded treatment effect is \GoldATE, and the machine-scored effect is
-\ProxyATE\ in the diffuse and concentrated cases. All three scoring systems
-have RMSE \PredictionRMSE\ and the same $R^2$ because they score the same gold
-outcomes and have the same squared-error total.
-
-The error patterns differ only in their cluster contributions. In the diffuse
-case, each cluster contributes $\EndpointGap/\NumClusters$ to the endpoint gap.
-In the concentrated case, two clusters contribute $\EndpointGap/2$ each and the
-others contribute zero. The offsetting case has two positive and two negative
-contributions of equal size, so the proxy and gold endpoints agree even though
-individual swaps can move the estimate.
+We enumerate all $2^8$ correction sets. Coalition approximation RMSE weights each
+set equally, equivalently using a Bernoulli design with $p=1/2$. Mean curvature
+is the maximum absolute departure of $\phi(p)$ from endpoint interpolation on a
+101-point grid. We also report the SD at a fixed half-pool budget. The repeated
+benchmark uses seeds 0--19 and error RMSE values $0.05,0.25,0.75,1.5$, holding each
+seed's dataset, batches and error direction fixed as amplitude changes. Its
+\CovariateReplications\ designs were specified in the analysis plan before this
+benchmark was run; the overall project remains exploratory.
 
 \begin{table}[H]
-\centering
-\caption{Matched prediction accuracy with different contribution patterns}
-\label{tab:scenarios}
-\small
-\input{generated/table_scenarios.tex}
-
-\vspace{0.35em}
-\begin{minipage}{0.94\linewidth}
-\footnotesize
-\textit{Note:} Gold ATE and proxy ATE are differences in means. Gap is gold
-minus proxy. Top-two share is the two largest absolute cluster contributions
-divided by the sum of absolute contributions. Each row uses the same gold
-outcomes. Quantities are deterministic for the generated finite population.
-\end{minipage}
+\centering\small
+\input{generated/covariates/table_main.tex}
+\caption{Main benchmark, with identical proxy RMSE across rows. Curvature is the
+maximum departure from endpoint interpolation. SD is over the 70 sets of four
+batches. IF RMSE compares the paired-score approximation with full refits over all
+256 subsets. All quantities except RMSE of the proxy itself are in treatment
+coefficient units.}
+\label{tab:main}
 \end{table}
 
-The first two patterns share the entire mean swap path, so no average over
-validation draws can separate them. Every difference between them is
-distributional.
+\begin{figure}[H]
+\centering\includegraphics[width=\textwidth]{generated/covariates/correction_paths.pdf}
+\caption{Mean correction paths (top) and dispersion (bottom). The exact Bernoulli
+path includes each batch independently with probability $p$. Fixed-budget SD uses
+exactly $k$ batches, plotted at $k/8$. The horizontal gray line is the verified
+endpoint. Vertical scales vary by panel to show each case's structure; numerical
+magnitudes appear in Table~\ref{tab:main}. Dispersion describes correction sets,
+not uncertainty about the causal parameter.}
+\label{fig:paths}
+\end{figure}
 
-Table~\ref{tab:budgets} prices each validation budget two ways. Tail risk is
-the exact share of validation sets whose scaled estimate lands more than
-\TailThreshold\ from the gold endpoint. The Normal price is the same
-probability computed from a Normal approximation with the correct
-finite-population variance of equation~\eqref{eq:htvar}, the summary a
-variance-based power analysis would use. The two prices agree only in the
-diffuse case, where every draw picks up the same correction and both are zero
-at every budget.
+The aligned case has curvature \AlignedCurvature\ and paired-score approximation
+RMSE \AlignedIFError. The diffuse case also departs from additivity, with
+curvature \DiffuseCurvature. The one-active-batch control has zero curvature and
+its single-repair approximation is exact, yet its half-budget SD is
+\ConcentratedHalfSD. This control demonstrates why a straight path is insufficient
+evidence of stability. Identical predictive RMSE does not fix either the endpoint
+gap or the distribution of intermediate corrections.
 
-Concentrated error breaks the approximation in both directions. At
-\BudgetExample\ labeled clusters the Normal price is \ConcentratedNormalTail\
-against an exact \ConcentratedTailRisk, because \ConcentratedZeroMove\ of the
-draws contain neither high-error cluster and leave the estimate at the
-machine-scored value. The exact price is also not monotone in the budget: the
-distribution's few atoms cross the threshold at different budgets as the
-$G/k$ scaling shrinks, so offsetting risk climbs to \OffsettingTailPeak\ at
-\OffsettingTailPeakBudget\ labeled clusters before falling, while the Normal
-price declines smoothly and understates the risk where it is largest. A
-larger budget can carry more tail risk than a smaller one, and the
-variance-based price never shows it. Decision reversals price the same way:
-\OffsettingSignFlip\ of single-cluster draws in the offsetting case reverse
-the sign of the estimated effect, the analogue of the sign-change criterion in
-dropping-data robustness \citep{giordano2026}. Bias is omitted from the table because
-it is zero up to numerical precision for every cell. A narrow distribution
-does not prove that human labels measure the intended construct. It says only
-that the specified validation draw estimates the observed gold-label endpoint
-consistently.
+\begin{figure}[H]
+\centering\includegraphics[width=\textwidth]{generated/covariates/attributions.pdf}
+\caption{Attribution of the endpoint change across the eight declared correction
+batches. Shapley values average marginal changes over all correction orders.
+Paired scores and isolated repair changes are alternative additive summaries;
+neither is required to sum to the finite endpoint gap. Vertical scales vary.}
+\end{figure}
 
-\begin{table}[H]
+\begin{figure}[H]
+\centering\includegraphics[width=\textwidth]{generated/covariates/approximation_benchmark.pdf}
+\caption{Repeated benchmark: median coalition approximation RMSE across 20 seeds,
+with 10th--90th percentile simulation ranges. These ranges are not confidence
+intervals. Both axes are logarithmic. The one-active-batch single-repair baseline is exact
+up to numerical error and is annotated instead of plotted at zero.
+All panels use the same vertical scale.}
+\label{fig:benchmark}
+\end{figure}
+
+The repeated benchmark shows why a useful diagnostic must include the baselines
+rather than presume their failure. Approximation error generally shrinks with
+error amplitude, and the feature derivative can outperform the finite paired
+score. No single approximation is uniformly best across the prescribed designs.
+Every coalition in all \CovariateReplications\ designs has full rank. The largest
+design-matrix condition number is \CovariateMaxCondition; these findings therefore
+do not require near-singular matrices in this benchmark. This does not establish
+robustness to arbitrary conditioning or superiority in other data-generating
+processes.
+
+\section{Evidence from two replication archives}
+\label{sec:archives}
+
+We examine two archives selected because they provide paired predictions and
+reference measurements. The first is the housing dataset distributed with
+\citet{kluger2025}: 46,418 observations with measured income and housing prices,
+and both predicted and reference values for nightlights and road length.
+We regress housing price on an intercept, income, nightlights, and road length,
+using the archive's transformations. The target is the income coefficient per
+one standard deviation of income. A correction replaces both adjustment
+covariates for one row. Fixed centering and scaling improve numerical stability
+without changing the regression specification.
+
+The second is the Reddit application of \citet{fong2021}. We reproduce the
+archive's weighted support-vector classifier using its original 2,413-row
+training CSV and document-term matrix, then predict incivility for the separate
+613-row validation sample. No validation outcomes or labels enter classifier
+training or tuning. In that validation sample, we regress comment score,
+clamped to $[-10,10]$ as in the original application, on an intercept and
+incivility. Here a correction replaces the regressor of interest with its human
+label. This is a diagnostic of the validation sample, not a reproduction of the
+original paper's primary-sample estimate. Both targets are descriptive
+associations; neither comparison identifies a causal effect.
+
+Each row is a correction unit, including rows whose proxy already agrees with
+the reference. At seven budgets from 1\% to 100\% of rows, we compare direct
+least-squares refits with the same three additive approximations used above.
+For each interior budget, 200 random permutation prefixes give uniformly
+sampled correction sets; the full-correction endpoint is computed once.
+The comparisons therefore concern random corrections within these observed
+pools, not a policy for discovering previously unobserved errors.
+
+\begin{table}[t]
 \centering
-\caption{Exact design-scaled distributions at selected budgets}
-\label{tab:budgets}
-\small
-\input{generated/table_budgets.tex}
-
-\vspace{0.35em}
-\begin{minipage}{0.92\linewidth}
-\footnotesize
-\textit{Note:} Mean, SD, and quantiles describe equation~\eqref{eq:ht} over all
-fixed-size cluster samples. Tail risk is
-$\Pr(|\widehat\tau_H-\widehat\tau_G|>\TailThreshold)$, computed by exact
-enumeration, not Monte Carlo. Normal price is the same probability under a
-Normal approximation with the exact finite-population variance of
-equation~\eqref{eq:htvar}. Gold ATE equals \GoldATE\ in every scenario.
-\end{minipage}
+\caption{Full corrections in the paired archives.}
+\label{tab:archives}
+\input{generated/archives/table.tex}
+\caption*{\footnotesize The three approximation rows predict the change from
+the proxy coefficient. Housing units are the archive's housing-price outcome
+per standard deviation of income; Reddit units are comment-score points.
+$R(N)$ is the actual change minus the sum of isolated changes. The reference-fit
+HC0 scale supplies a descriptive normalization, not a population confidence
+interval; spatial or within-thread dependence is not accounted for.}
 \end{table}
 
-\section{Related subset diagnostics}
+Table~\ref{tab:archives} shows nonadditivity in both settings, with different
+magnitudes. In housing, summing isolated effects predicts a coefficient change
+\ArchiveHousingRatio\ times the actual change. The ratio is large partly because
+the actual endpoint change is small; the table reports both in coefficient units.
+In Reddit, the isolated sum understates the magnitude of the endpoint change by
+\ArchiveRedditUnderstatement\%. The paired-score approximation is close to the
+isolated sum in both archives. Its discrepancy should not be confused with the
+much larger error of the feature derivative, which also omits finite-amplitude
+changes in the estimating equation.
 
-A thought experiment locates the swap distribution among its neighbors.
-Suppose every observation had a gold label. The measurement layer would
-vanish, and the only randomness left would be treatment assignment: over
-re-randomization, each cluster's contribution to the estimate enters with a
-random sign as the cluster changes arm. The wild cluster bootstrap
-approximates exactly this sign-flip process, applying independent mean-zero
-multipliers to cluster score contributions \citep{cameron2008}, and the first
-break in Section~\ref{sec:breaks} is that layer's variance statement for the
-scoring errors. Now remove the labels for all but $k$ clusters. A second
-layer of randomness sits on the same cluster contributions: for the linear
-contrast,
-\[
-\widehat\tau_R(S_k)-\E_{S_k}[\widehat\tau_R(S_k)]
-=\sum_{g=1}^{G}\left(Z_g-\frac{k}{G}\right)\psi_g,
-\]
-where $Z_g=\1\{g\in S_k\}$ marks the labeled clusters. The two procedures are
-one construction --- recompute the estimate under random reweighting of
-cluster contributions --- instantiated with different multiplier laws for
-different design layers: signs for assignment, inclusion indicators for
-labeling. That is why neither substitutes for the other. Swap quantiles are
-not confidence intervals, because valid uncertainty for the experimental
-effect must average over the sign layer, and valid uncertainty for the
-correction must average over the indicator layer actually used to buy labels.
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{generated/archives/archive_paths.pdf}
+\caption{Correction paths in the paired archives. Points are mean refitted
+coefficients at the declared budgets. Shading shows the 5th--95th percentiles
+across sampled correction sets, not confidence intervals. Dashed lines show
+mean additive approximations on those same sets; isolated corrections and
+paired scores largely overlap. Lines connect the evaluated budgets.}
+\label{fig:archives}
+\end{figure}
 
-Dropping-data robustness metrics are the third member of the family: they
-apply adversarially chosen zero weights to individual observations and locate
-the worst set with a first-order influence approximation, exact enumeration
-being infeasible \citep{giordano2026}. The swap construction differs on every
-choice --- the perturbed unit is the gold-label set rather than the data, the
-weights are drawn by a design rather than chosen by an adversary, and no
-approximation is needed because the linear contrast makes every swap effect
-exactly additive in the cluster contributions. The adversarial variant is
-nevertheless free here: the most adverse $k$-cluster validation draw is the
-sum of the $k$ most extreme contributions, read off by sorting the $\psi_g$.
+Figure~\ref{fig:archives} places the endpoint comparisons in context. Isolated
+corrections and paired scores track refits closely for small random correction
+sets; their errors grow as corrections accumulate. Reddit also has substantial
+dispersion across correction sets despite relatively modest nonadditivity.
+The housing mean path flattens as the correction budget increases. Thus neither
+the endpoint gap nor the error of the feature derivative alone describes the
+diagnostic. These exploratory results show that the joint effects are measurable
+in actual prediction archives. They do not establish their prevalence across
+applications or that accounting for them changes a verification decision.
 
-\section{Use and limits}
+\section{Discussion}
 
-A validation-swap analysis begins with the same choices required by any
-two-phase design. The researcher states the causal estimand, fixes the machine
-scoring rule, identifies the unit sampled for human coding, and records every
-cluster's inclusion probability. If treatment is assigned by cluster, swapping
-individual labels while treating them as independent understates the relevant
-variation.
+With a fully verified benchmark or pilot pool, the method can reveal which
+correction budgets and sets leave a coefficient sensitive, whether influence
+approximations are adequate, and which declared units account for the endpoint
+change. This can inform hypotheses about a later validation design. It cannot
+by itself price the unseen errors of a new population. Learning an acquisition
+policy would require a separate pilot-to-target design, available sampling
+features, an objective such as estimation error or tail risk, and comparison
+with established influence-based allocation under a common label budget.
 
-The primary analysis should report a valid correction estimator and interval,
-using prediction-powered, design-based supervised learning, or another method
-whose assumptions fit the design. The swap distribution is an additional
-diagnostic. Before seeing it, the researcher chooses validation budgets and a
-substantively meaningful movement threshold. The exhibit then reports
-quantiles, tail risk, and any decision reversal probability. Accuracy metrics
-remain useful descriptions of the scoring model, but they do not substitute for
-this coefficient-specific analysis.
+An exact counterexample in Appendix~\ref{app:undetected-interactions} makes the
+information limit concrete. Two possible completions of the unverified
+covariates give identical observed data whenever a random pilot misses two
+specific rows. One completion has no measurement error; the other has interacting
+corrections that an additive summary misrepresents. The probability of missing
+those rows is known from the sampling design. Thus an uneventful pilot alone
+cannot certify negligible interactions outside it. This is an indistinguishability
+argument, not a claim about how frequently such configurations occur in practice.
 
-The diagnostic has four limits. First, it cannot reveal the individual errors of
-unlabeled observations. Second, a distribution computed inside a convenience
-validation sample need not transport outside it. Third, human labels can contain
-their own error or define the wrong construct. Fourth, a small number of
-validated clusters may leave the distribution too poorly estimated to support
-fine subgroup claims. The proper conclusion in that case is that the validation
-budget does not resolve the scoring risk.
+A prospective study must also distinguish choosing which measurements to
+verify from choosing which predictions to use. Filtered prediction-powered
+inference selects regions for prediction-based augmentation while retaining the
+full-population target \citep{xu2026}. OPAL optimizes labeling policies for
+prediction-assisted inference using influence-function information
+\citep{ma2026}. Power analysis for prediction-powered inference addresses labeled
+sample size through asymptotic variance and power calculations \citep{chen2026}.
+These are relevant comparators for a future decision rule. Our conditional
+correction distributions do not establish better allocation, a smaller required
+sample, or valid selection of a low-distortion population.
 
-Machine-scored experiments create two sources of uncertainty: treatment
-assignment and gold-label sampling. Randomization-based or cluster-robust
-inference addresses the first. Established two-phase estimators address the
-second when they correct the machine-scored contrast. The random-swap
-distribution makes validation-sample dependence visible by showing how much the
-conclusion depends on which clusters were checked.
+Exact enumeration is exponential and is capped at 16 players in the implementation.
+For larger games, the code provides permutation Shapley estimates with numerical
+Monte Carlo standard errors. Each sampled order telescopes to the endpoint gap.
+That estimator does not recover the entire correction-set distribution. The
+archive applications instead sample fixed-size sets directly to estimate means
+and dispersion; rare-tail estimation would require further computation. Large batches change
+the question, so grouping is part of the diagnostic specification, not an
+innocuous speed optimization.
 
-\bibliographystyle{plainnat}
+The present evidence supports a finite-sample diagnostic application. A stronger
+research contribution would require evidence that the path changes a
+consequential decision, or a prospective validation study showing better
+estimation under the same acquisition budget. The archive applications measure
+approximation discrepancies, but do not establish either decision benefit.
+
+\bibliographystyle{apalike}
 \bibliography{references}
+
+\clearpage
+\appendix
+\setcounter{table}{0}
+\renewcommand{\thetable}{A\arabic{table}}
+\renewcommand{\theHtable}{appendix.\arabic{table}}
+\setcounter{figure}{0}
+\renewcommand{\thefigure}{A\arabic{figure}}
+\renewcommand{\theHfigure}{appendix.\arabic{figure}}
+\setcounter{equation}{0}
+\renewcommand{\theequation}{A\arabic{equation}}
+\renewcommand{\theHequation}{appendix.\arabic{equation}}
+\section*{Appendix: Supplementary results and checks}
+\section{Linear outcome corrections as a boundary case}
+
+For a fixed linear treatment contrast, let $\psi_g$ be the change from correcting
+cluster $g$, and $\widehat\tau_P$ the proxy contrast. Raw replacement gives
+\begin{equation}
+ \widehat\tau_R(S_k)=\widehat\tau_P+\sum_{g\in S_k}\psi_g,\qquad
+ \E\widehat\tau_R(S_k)=\widehat\tau_P+
+ \frac{k}{G}(\widehat\tau_G-\widehat\tau_P).
+\end{equation}
+The mean is mechanically linear, but the correction-set distribution need not be
+concentrated or approximately Normal. Finite-population limit theory provides
+conditions for Normal approximation \citep{erdos1959,hajek1960,liding2017};
+enumerating a finite distribution does not create a new sampling theory.
+The retained outcome benchmark holds RMSE
+and predictive $R^2$ fixed across three patterns. Its diffuse and concentrated
+patterns also share both endpoints, while their dispersions differ.
+
+\begin{table}[H]\centering\small
+\input{generated/table_scenarios.tex}
+\caption{Retained outcome benchmark: 20 clusters of 50 observations. Top-two share
+is the share of absolute correction contributions in the two largest clusters.}
+\end{table}
+
+A design-scaled correction,
+$\widehat\tau_H(S_k)=\widehat\tau_P+(G/k)\sum_{g\in S_k}\psi_g$, is the standard
+difference-estimation construction \citep{horvitz1952,sarndal1992}. Unlike the raw
+swap, its design expectation is the full-gold contrast at every positive budget.
+The following table describes this scaled estimator. Its logic should not be
+transferred to nonlinear covariate refits merely by multiplying a raw coefficient
+change by $G/k$.
+
+\begin{table}[H]\centering\small
+\input{generated/table_budgets.tex}
+\caption{Design-scaled outcome correction. Quantiles, SD and tail risk are over
+uniform fixed-size subsets. Tail risk is the probability of an absolute departure
+from the full-gold contrast greater than \TailThreshold; ``Normal price'' is the
+corresponding Normal approximation using the exact variance. These are conditional
+benchmark probabilities, not confidence statements.}
+\end{table}
+
+\section{A validation sample can miss interacting errors}
+\label{app:undetected-interactions}
+
+Consider a finite cohort of $N\geq 3$ observations. The outcome $Y$, treatment
+$D$, and proxy covariate $\widetilde U$ are observed for everyone. Only a simple
+random sample of $n$ distinct rows receives verification. The regression includes
+an intercept, $D$, and the covariate. Fix the observed data and two possible
+completions of its unverified values as follows:
+\begin{table}[H]\centering
+\begin{tabular}{lrrrrr}
+\toprule
+Rows & $D$ & $Y$ & $\widetilde U$ & $U^{(0)}$ & $U^{(1)}$ \\
+\midrule
+$N-2$ ordinary rows & 0 & 0 & 0 & 0 & 0 \\
+Row $i$ & 1 & 1 & 0 & 0 & 1 \\
+Row $j$ & 0 & 1 & 1 & 1 & 2 \\
+\bottomrule
+\end{tabular}
+\caption{Observed data and two possible covariate completions. Only the verified
+values of the pilot rows are observed. The last two columns agree on every
+ordinary row. Values are specified analytically.}
+\end{table}
+These are stipulated values defining an algebraic example, not simulation
+output. Completion 0 has no measurement error. In completion 1 only rows $i$
+and $j$ require correction. Write $v(S)$ for the coefficient on $D$ after
+correcting rows in $S$. Every possible correction design has full column rank.
+Indeed, the ordinary rows imply a fitted intercept of zero, row $j$ gives the
+covariate coefficient $1/u_j$, and row $i$ gives
+$v(S)=1-u_i/u_j$, where $u_i\in\{0,1\}$ and $u_j\in\{1,2\}$ are the covariate
+values used in that fit. All outcomes are fitted exactly. Hence, in completion 1,
+\begin{equation}
+ v(\varnothing)=1,\qquad v(\{i\})=0,\qquad
+ v(\{j\})=1,\qquad v(\{i,j\})=\tfrac12.
+ \label{eq:hidden-example}
+\end{equation}
+The interaction is
+\begin{equation}
+ v(\{i,j\})-v(\{i\})-v(\{j\})+v(\varnothing)=\tfrac12.
+\end{equation}
+Adding the isolated correction effects predicts a jointly corrected coefficient
+of zero; the actual coefficient is $1/2$. The two calculations therefore fall
+on opposite sides of any substantive threshold strictly between zero and
+$1/2$. This concerns a regression coefficient; the example makes no claim of
+causal identification.
+
+Let $E$ be the event that the pilot misses both special rows. For $n\leq N-2$,
+\begin{equation}
+ q=\Pr(E)=\frac{\binom{N-2}{n}}{\binom{N}{n}}
+          =\frac{(N-n)(N-n-1)}{N(N-1)}.
+ \label{eq:pilot-miss}
+\end{equation}
+For $n>N-2$, $q=0$. On $E$, the entire observed record, including the full cohort's
+outcomes and proxies, the sampled identities, and their verified values, is
+identical in the two completions. Every correction available in the pilot is
+zero, although completion 1 has the interaction in
+\eqref{eq:hidden-example}. For example, $N=100$ and $n=10$ give
+$q=89/110$, about $81\%$.
+
+This also bounds any procedure using these observations. Let $T\in\{0,1\}$
+flag consequential interactions, and suppose its false-positive probability in
+completion 0 is at most $\alpha$. Allow the procedure its own randomization.
+The sampling law and observed data agree on $E$, so
+\begin{align}
+ \Pr_1(T=1)
+ &=\Pr_1(T=1,E)+\Pr_1(T=1,E^c)\\
+ &\leq\Pr_0(T=1,E)+1-q\leq\alpha+1-q.
+ \label{eq:pilot-power-bound}
+\end{align}
+Thus its probability of failing to flag completion 1 is at least $q-\alpha$
+when that quantity is positive. This elementary indistinguishability argument
+rules out a uniform guarantee over unrestricted covariate completions under
+the stated random-pilot design.
+
+The example deliberately concentrates identifying variation in two observable
+rows. A design that targets those rows can avoid the problem; this is not a
+lower bound for every adaptive sampling policy. Nor does the calculation
+establish the prevalence of hidden interactions. It shows precisely why a
+random pilot's absence of errors is insufficient on its own: extrapolation to
+unverified rows needs restrictions on the possible errors, a sampling design
+that covers consequential rows, or other information linking observed and
+unobserved corrections.
+
+\section{Reproducibility and checks}
+
+The repository contains the analysis plan, complete coalition values for the main
+covariate examples, repeated-design summaries, generated tables and figures, and
+separate metadata for the benchmarks. Tests check the normal-equation identity
+against independent least-squares fits, exact Shapley against every permutation
+in a small game, its agreement with integrated marginal paths, partial-validation
+endpoints, the additive control, small-amplitude behavior, and explicit failures
+for rank-deficient coalitions. The historical implementation audit is retained in
+the research notes; its domain-selection and calibration claims are not used as
+evidence here.
+
+The archive pilot fixes source-file checksums and uses the housing repository at
+commit \texttt{f4adf2d} and the Fong--Tyler Dataverse deposit, version 1.2.\footnote{
+Housing: \url{https://github.com/DanKluger/Predict-Then-Debias_Bootstrap}.
+Reddit: \url{https://doi.org/10.7910/DVN/QQHBHY}. The machine-readable source
+manifest contains the full commit identifier and file-specific download URLs.}
+The original Reddit training CSV has 2,413 rows, whereas Dataverse's converted
+tabular file has 2,412. The document-term indices match the original CSV, which
+we use without reordering. Training and validation comment IDs do not overlap;
+the archive's matrix-to-row ordering is retained. Human labels and other
+reference measurements are treated as fixed, not assumed to measure constructs
+without error.
+
+The empirical specifications and the correction of the training-row count are
+recorded in the analysis plan. No downstream coefficients were inspected before
+specifying the two targets and budgets; this is a self-attested exploratory
+plan, not a preregistration. Saved outputs include every sampled-set coefficient,
+approximation errors, conditioning, numerical Monte Carlo standard errors for
+means and RMSE, and software versions. All sampled designs have full rank.
+Individual-row updates computed from sufficient statistics agree with independent
+least-squares refits on random, high-leverage, and large-update checks. Neither
+archive supplies the design needed here to interpret HC0 scales as valid
+population uncertainty; they are used only to put discrepancies on a common
+descriptive scale.
 
 \end{document}
