@@ -154,8 +154,8 @@ class ExactGame:
         weights = np.array([math.comb(self.size - 1, k) for k in range(self.size)])
         return self.marginal_by_size() @ weights / 2 ** (self.size - 1)
 
-    def bernoulli(self, probabilities: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """Exact mean and SD when every player is independently corrected with p."""
+    @staticmethod
+    def _binomial_weights(probabilities: np.ndarray, players: int) -> np.ndarray:
         probabilities = np.asarray(probabilities, dtype=float)
         if (
             probabilities.ndim != 1
@@ -163,35 +163,24 @@ class ExactGame:
             or np.any((probabilities < 0) | (probabilities > 1))
         ):
             raise ValueError("probabilities must be a finite vector in [0, 1]")
+        counts = np.arange(players + 1)
+        multiplicities = [math.comb(players, k) for k in range(players + 1)]
+        p = probabilities[:, None]
+        return multiplicities * p**counts * (1 - p) ** (players - counts)
+
+    def bernoulli(self, probabilities: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Exact mean and SD when every player is independently corrected with p."""
+        weights = self._binomial_weights(probabilities, self.size)
         groups = [group - self.values[0] for group in self.fixed_size()]
         means = np.array([group.mean() for group in groups])
         seconds = np.array([np.mean(group**2) for group in groups])
-        weights = np.array(
-            [
-                [
-                    math.comb(self.size, k) * p**k * (1 - p) ** (self.size - k)
-                    for k in range(self.size + 1)
-                ]
-                for p in probabilities
-            ]
-        ).reshape(len(probabilities), self.size + 1)
         mean = weights @ means
         return mean + self.values[0], np.sqrt(
             np.maximum(0, weights @ seconds - mean**2)
         )
 
     def marginal_path(self, probabilities: np.ndarray) -> np.ndarray:
-        probabilities = np.asarray(probabilities, dtype=float)
-        self.bernoulli(probabilities)
-        weights = np.array(
-            [
-                [
-                    math.comb(self.size - 1, k) * p**k * (1 - p) ** (self.size - 1 - k)
-                    for k in range(self.size)
-                ]
-                for p in probabilities
-            ]
-        ).reshape(len(probabilities), self.size)
+        weights = self._binomial_weights(probabilities, self.size - 1)
         return self.marginal_by_size() @ weights.T
 
 
