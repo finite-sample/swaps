@@ -189,3 +189,11 @@ def test_random_pilot_miss_probability_by_enumeration():
         expected /= n_rows * (n_rows - 1)
         assert misses / len(pilots) == pytest.approx(expected)
     assert comb(98, 10) / comb(100, 10) == pytest.approx(89 / 110)
+
+
+def test_marginal_path_for_one_player_and_empty_probability_grid():
+    exact = ExactGame(np.array([1.5, -0.5]), np.ones(2))
+    np.testing.assert_array_equal(exact.marginal_path([0, 0.4, 1]), [[-2, -2, -2]])
+    assert exact.marginal_path([]).shape == (1, 0)
+    with pytest.raises(ValueError, match="probabilities"):
+        exact.marginal_path([np.inf])
