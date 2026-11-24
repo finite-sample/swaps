@@ -1,3 +1,4 @@
+from fractions import Fraction
 from itertools import combinations, permutations
 from math import comb
 
@@ -99,7 +100,7 @@ def test_partial_validation_endpoint_ignores_unknown_rows():
     verified[rows] = full.verified[rows]
     game = CorrectionGame(full.proxy, verified, full.outcome, (full.players[0],), 1)
     exact = enumerate_game(game)
-    assert exact.values[-1] == full.value(1)
+    assert exact.values[-1] == pytest.approx(full.value(1), abs=1e-13)
     np.testing.assert_allclose(exact.shapley(), [full.value(1) - full.value(0)])
 
 
@@ -197,3 +198,96 @@ def test_marginal_path_for_one_player_and_empty_probability_grid():
     assert exact.marginal_path([]).shape == (1, 0)
     with pytest.raises(ValueError, match="probabilities"):
         exact.marginal_path([np.inf])
+
+
+def reference_enumeration(game):
+    """The per-subset refit that enumerate_game replaced: copy, then lstsq."""
+    fits = [fit_ols(game.design(mask), game.outcome) for mask in range(2**game.size)]
+    return (
+        np.array([beta[game.target] for beta, _ in fits]),
+        np.array([condition for _, condition in fits]),
+    )
+
+
+def exact_rational_coefficients(design, outcome):
+    """Least squares in exact rational arithmetic on the given float data."""
+    x = [[Fraction(float(v)) for v in row] for row in design]
+    y = [Fraction(float(v)) for v in outcome]
+    p = len(x[0])
+    a = [
+        [sum(r[i] * r[j] for r in x) for j in range(p)]
+        + [sum(r[i] * t for r, t in zip(x, y, strict=True))]
+        for i in range(p)
+    ]
+    for col in range(p):
+        pivot = next(r for r in range(col, p) if a[r][col] != 0)
+        a[col], a[pivot] = a[pivot], a[col]
+        for r in range(p):
+            if r != col and a[r][col] != 0:
+                factor = a[r][col] / a[col][col]
+                a[r] = [u - factor * v for u, v in zip(a[r], a[col], strict=True)]
+    return [float(a[i][p] / a[i][i]) for i in range(p)]
+
+
+@pytest.mark.parametrize("scenario", ["diffuse", "concentrated", "aligned"])
+@pytest.mark.parametrize("n, players", [(96, 8), (40, 5)])
+def test_batched_enumeration_matches_per_subset_refits(scenario, n, players):
+    game = make_benchmark(scenario, n=n, players=players)
+    exact = enumerate_game(game)
+    values, conditions = reference_enumeration(game)
+    np.testing.assert_allclose(exact.values, values, rtol=1e-12, atol=1e-14)
+    np.testing.assert_allclose(exact.condition_numbers, conditions, rtol=1e-10)
+
+
+def test_batched_enumeration_matches_exact_rational_least_squares():
+    game = make_benchmark("aligned", n=32, players=4)
+    exact = enumerate_game(game)
+    for mask in range(16):
+        oracle = exact_rational_coefficients(game.design(mask), game.outcome)
+        # Absolute: some target coefficients are near 0 while the vector is O(1).
+        assert exact.values[mask] == pytest.approx(oracle[1], rel=0, abs=1e-13)
+
+
+def near_singular_game():
+    """Proxy covariate 2 nearly duplicates covariate 1 (cond ~1e8); corrections
+    by players 0-2 break the collinearity, player 3's correction changes nothing.
+    So exactly masks 0 and 8 are ill conditioned."""
+    rng = np.random.default_rng(3)
+    n = 60
+    x1 = rng.normal(size=n)
+    proxy = np.column_stack([np.ones(n), x1, x1 + 1e-8 * rng.normal(size=n)])
+    verified = proxy.copy()
+    verified[:45, 2] = rng.normal(size=45)
+    outcome = x1 + rng.normal(size=n)
+    players = (tuple(range(15)), tuple(range(15, 30)), tuple(range(30, 45)))
+    players += (tuple(range(45, 60)),)
+    return CorrectionGame(proxy, verified, outcome, players, target=1)
+
+
+def test_ill_conditioned_subsets_fall_back_to_lstsq(monkeypatch):
+    import covariate_swaps
+
+    limit = covariate_swaps.GRAM_CONDITION_LIMIT
+    game = near_singular_game()
+    values, conditions = reference_enumeration(game)
+    assert np.flatnonzero(conditions > limit).tolist() == [0, 8]
+    assert conditions[conditions <= limit].max() < limit / 10
+
+    refits = []
+    original = covariate_swaps.fit_ols
+
+    def counting(design, outcome):
+        refits.append(design)
+        return original(design, outcome)
+
+    monkeypatch.setattr(covariate_swaps, "fit_ols", counting)
+    exact = enumerate_game(game)
+    assert len(refits) == 2
+    for mask in (0, 8):
+        assert exact.values[mask] == values[mask]
+        assert exact.condition_numbers[mask] == conditions[mask]
+    stable = conditions <= limit
+    np.testing.assert_allclose(exact.values[stable], values[stable], rtol=1e-12)
+    np.testing.assert_allclose(
+        exact.condition_numbers[stable], conditions[stable], rtol=1e-10
+    )

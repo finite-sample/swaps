@@ -8,6 +8,14 @@ from dataclasses import dataclass
 import numpy as np
 
 MAX_EXACT_PLAYERS = 16
+# Solving X'X b = X'y loses about cond(X)**2 * eps relative accuracy, against
+# roughly cond(X) * eps for lstsq. Measured against exact rational least squares
+# on a near-collinear design, the Gram solve's error was 3e-10 at cond 2e3 and
+# 4e-6 at cond 2e5 (lstsq: 2e-12, 1e-10). Above this limit the subset is refit
+# from its explicit design, keeping the extra error below about 1e-10.
+GRAM_CONDITION_LIMIT = 1e3
+# Masks assembled per batch, bounding memory at ENUMERATION_CHUNK * p * p floats.
+ENUMERATION_CHUNK = 4096
 
 
 def fit_ols(design: np.ndarray, outcome: np.ndarray) -> tuple[np.ndarray, float]:
@@ -185,15 +193,53 @@ class ExactGame:
 
 
 def enumerate_game(game: CorrectionGame) -> ExactGame:
+    """Refit every correction subset from per-player changes to X'X and X'y.
+
+    A subset's Gram matrix is the proxy Gram plus the changes of its players,
+    so all 2**m systems are assembled by one product with the mask bits and
+    solved in a batch. Normal equations square the condition number, so any
+    subset whose design condition exceeds ``GRAM_CONDITION_LIMIT`` (and any
+    rank-deficient one) is refit from its explicit design by ``fit_ols``.
+    """
     if game.size > MAX_EXACT_PLAYERS:
         raise ValueError(
             f"exact enumeration accepts at most {MAX_EXACT_PLAYERS} players"
         )
-    values = np.empty(2**game.size)
-    conditions = np.empty_like(values)
-    for mask in range(len(values)):
+    proxy, verified, outcome = game.proxy, game.verified, game.outcome
+    p = proxy.shape[1]
+    gram_changes = np.empty((game.size, p * p))
+    score_changes = np.empty((game.size, p))
+    for j, rows in enumerate(game.players):
+        index = list(rows)
+        old, new = proxy[index], verified[index]
+        gram_changes[j] = (new.T @ new - old.T @ old).ravel()
+        score_changes[j] = (new - old).T @ outcome[index]
+    gram0 = (proxy.T @ proxy).ravel()
+    score0 = proxy.T @ outcome
+
+    count = 2**game.size
+    values = np.empty(count)
+    conditions = np.empty(count)
+    unstable = []
+    players = np.arange(game.size)
+    for start in range(0, count, ENUMERATION_CHUNK):
+        masks = np.arange(start, min(start + ENUMERATION_CHUNK, count))
+        bits = ((masks[:, None] >> players) & 1).astype(float)
+        gram = (gram0 + bits @ gram_changes).reshape(-1, p, p)
+        score = score0 + bits @ score_changes
+        eigenvalues = np.linalg.eigvalsh(gram)
+        smallest, largest = eigenvalues[:, 0], eigenvalues[:, -1]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            condition = np.where(smallest > 0, np.sqrt(largest / smallest), np.inf)
+        stable = condition <= GRAM_CONDITION_LIMIT
+        if stable.any():
+            beta = np.linalg.solve(gram[stable], score[stable][:, :, None])
+            values[masks[stable]] = beta[:, game.target, 0]
+            conditions[masks[stable]] = condition[stable]
+        unstable.extend(masks[~stable].tolist())
+    for mask in unstable:
         try:
-            beta, condition = fit_ols(game.design(mask), game.outcome)
+            beta, condition = fit_ols(game.design(mask), outcome)
         except ValueError as error:
             raise ValueError(f"coalition {mask}: {error}") from error
         values[mask] = beta[game.target]
