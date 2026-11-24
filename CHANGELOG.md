@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Speed up `enumerate_game` by assembling every subset's X'X and X'y from per-player changes and solving them in one batched `np.linalg.solve`, instead of copying the design and calling `lstsq` once per subset. At the enumeration limit (n=2000, 16 players, 65,536 refits) the median time fell from 8.96 s to 0.075 s (119x; old-against-old run 0.99); at the committed benchmark size (n=96, 8 players) from 5.6 ms to 0.46 ms (12x), and `replicate_covariates.py` from 2.7 s to 1.6 s. Coefficients agree with the per-subset `lstsq` refits to 5.9e-15 and condition numbers to 9.3e-15 relative; the committed tables and macros are byte-identical. Because the normal equations square the condition number, subsets whose design condition exceeds 1e3 (and rank-deficient ones) are still refit by `lstsq`.
+
 ## v0.2.0 - 2026-08-18
 
 - Unify the related-diagnostics discussion around one reweighting construction with three multiplier laws: signs for assignment uncertainty (wild cluster bootstrap), inclusion indicators for labeling-design dependence (this paper), and adversarial zeros for dropping-data robustness.
